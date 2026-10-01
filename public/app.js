@@ -33,7 +33,7 @@ class StocksProvider {
         return {
             name: 'stocks',
             displayName: 'US Stocks',
-            supportedTimeframes: ['1', '5', '15', '30', '60', 'D', 'W', 'M'],
+            supportedTimeframes: ['D', 'W', 'M'],
             capabilities: { enumerate: true, stream: false, symbolInfo: false },
         };
     }
@@ -47,6 +47,7 @@ const ws = new VelaWorkspace('#chart', {
     symbol: 'stocks:SPY',
     timeframe: 'D',
     theme: 'dark',
+    timeframes: ['D', 'W', 'M'],
     providers: { stocks: () => new StocksProvider() },
     engines: { pine: () => new PineWorkerEngine() },
     persist: true,
