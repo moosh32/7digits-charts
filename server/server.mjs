@@ -131,6 +131,11 @@ async function getBars(symbol, tfKey, tf) {
             return tfKey === 'D' ? d : resampleDaily(d, tfKey);
         } catch (e) { errors.push(e.message); }
     }
+    if (!eod && TD_KEY) {
+        try {
+            return await twelveDataBars(symbol, tfKey);
+        } catch (e) { errors.push(e.message); }
+    }
     try {
         return await yahooBars(symbol, tf);
     } catch (e) { errors.push(e.message); }
