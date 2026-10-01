@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7-DIGITS Charts — גרפים למניות ארה״ב</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">7-DIGITS</span>
+    <span class="brand-sub">גרפים למניות ארה״ב</span>
+  </div>
+  <div class="search-wrap">
+    <input id="symbol-search" type="text" placeholder="חיפוש מניה… (לדוגמה: NVDA)" autocomplete="off" spellcheck="false">
+    <div id="search-results" class="search-results" hidden></div>
+  </div>
+  <nav class="timeframes" id="timeframes">
+    <button data-tf="1">דקה</button>
+    <button data-tf="5">5 דק׳</button>
+    <button data-tf="15">15 דק׳</button>
+    <button data-tf="30">30 דק׳</button>
+    <button data-tf="60">שעה</button>
+    <button data-tf="D" class="active">יומי</button>
+    <button data-tf="W">שבועי</button>
+    <button data-tf="M">חודשי</button>
+  </nav>
+  <div class="current-symbol" id="current-symbol">SPY</div>
+</header>
+<main id="chart"></main>
+<footer class="footnote">הנתונים באיחור קל לצורכי המחשה בלבד — לא המלצת מסחר. הגרפים מבוססים על <a href="https://velacharts.dev" target="_blank" rel="noopener">Vela™‎</a>.</footer>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

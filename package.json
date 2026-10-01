@@ -1,0 +1,23 @@
+{
+  "name": "7digits-charts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "vite build",
+    "start": "node server/server.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@luxalgo/vela": "^0.8.1",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
