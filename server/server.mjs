@@ -137,6 +137,14 @@ app.get('/api/search', async (req, res) => {
 
 app.get('/api/health', (req, res) => res.json({ ok: true, twelvedata: !!TD_KEY }));
 
+// TEMP debug — remove before handoff
+app.get('/api/debug-sources', async (req, res) => {
+    const out = {};
+    try { const r = await fetch('https://stooq.com/q/d/l/?s=aapl.us&i=d', { headers: { 'User-Agent': UA } }); out.stooq = r.status + ' ' + (await r.text()).slice(0, 60); } catch (e) { out.stooq = 'err ' + e.message; }
+    try { const r = await fetch('https://api.nasdaq.com/api/quote/AAPL/chart?assetclass=stocks', { headers: { 'User-Agent': UA, 'Accept': 'application/json' } }); out.nasdaq = r.status + ' ' + (await r.text()).slice(0, 60); } catch (e) { out.nasdaq = 'err ' + e.message; }
+    res.json(out);
+});
+
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 app.use((req, res) => res.sendFile(path.join(__dirname, '..', 'dist', 'index.html')));
 
