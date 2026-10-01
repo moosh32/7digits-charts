@@ -1,4 +1,5 @@
 import express from 'express';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -137,7 +138,23 @@ async function getBars(symbol, tfKey, tf) {
     throw new Error(errors.join(' | ') || 'no data');
 }
 
-// ---------- cache ----------
+// ---------- symbol universe (official Nasdaq Trader symbol directories) ----------
+const UNIVERSE = JSON.parse(fs.readFileSync(new URL('./universe.json', import.meta.url), 'utf8'));
+
+function searchUniverse(q) {
+    const uq = q.toUpperCase().trim();
+    if (!uq) return [];
+    const hits = [];
+    for (const it of UNIVERSE) {
+        let score = -1;
+        if (it.s === uq) score = 0;
+        else if (it.s.startsWith(uq)) score = 1;
+        else if (it.n.toUpperCase().includes(uq)) score = 2;
+        if (score >= 0) hits.push([score, it]);
+    }
+    hits.sort((a, b) => a[0] - b[0] || (a[1].s < b[1].s ? -1 : 1));
+    return hits.slice(0, 12).map(([, it]) => ({ symbol: it.s, name: it.n, exchange: it.e }));
+}
 const cache = new Map();
 const INTRADAY_TTL = 5 * 60 * 1000;
 const DAILY_TTL = 4 * 60 * 60 * 1000;
@@ -179,10 +196,7 @@ app.get('/api/search', async (req, res) => {
         const ck = `search:${q.toLowerCase()}`;
         const hit = cacheGet(ck);
         if (hit) return res.json(hit);
-        const j = await yahooGet('query2.finance.yahoo.com', `/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=12&newsCount=0`);
-        const out = (j?.quotes || [])
-            .filter((x) => x.quoteType === 'EQUITY' || x.quoteType === 'ETF')
-            .map((x) => ({ symbol: x.symbol, name: x.shortname || x.longname || x.symbol, exchange: x.exchDisp || x.exchange || '' }));
+        const out = searchUniverse(q);
         cacheSet(ck, out, SEARCH_TTL);
         res.json(out);
     } catch (e) {
