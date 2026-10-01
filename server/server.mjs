@@ -18,8 +18,21 @@ const TF_MAP = {
     'M':  { interval: '1mo', range: 'max' },
 };
 
+let yahooCookie = '';
+
 async function yahoo(host, p) {
-    const r = await fetch(`https://${host}${p}`, { headers: { 'User-Agent': UA } });
+    const attempt = (cookie) => fetch(`https://${host}${p}`, {
+        headers: { 'User-Agent': UA, ...(cookie ? { Cookie: cookie } : {}) },
+    });
+    let r = await attempt(yahooCookie);
+    if ((r.status === 401 || r.status === 403) && !yahooCookie) {
+        try {
+            const c = await fetch('https://fc.yahoo.com', { headers: { 'User-Agent': UA } });
+            const raw = typeof c.headers.getSetCookie === 'function' ? c.headers.getSetCookie() : [];
+            yahooCookie = raw.map((s) => s.split(';')[0]).join('; ');
+            if (yahooCookie) r = await attempt(yahooCookie);
+        } catch { /* fall through to error */ }
+    }
     if (!r.ok) throw new Error(`yahoo ${r.status}`);
     return r.json();
 }
@@ -42,7 +55,7 @@ app.get('/api/bars', async (req, res) => {
         if (!bars.length) return res.status(404).json({ error: 'no data' });
         res.json(bars);
     } catch (e) {
-        res.status(502).json({ error: 'data unavailable' });
+        res.status(502).json({ error: 'data unavailable', detail: String(e.message || e).slice(0, 120) });
     }
 });
 
