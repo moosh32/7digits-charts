@@ -92,6 +92,114 @@ body {
   border-radius: 8px;
   padding: 4px 12px;
 }
+.hdr-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.hdr-btn:hover { border-color: var(--accent); color: #fff; }
+.hdr-btn.open { background: var(--accent-soft); border-color: var(--accent); color: #fff; }
+.drawer {
+  position: fixed;
+  top: 57px;
+  bottom: 25px;
+  right: 0;
+  width: 300px;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 12px 0 0 12px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 10px;
+  box-shadow: -12px 0 32px rgba(0,0,0,.5);
+}
+.drawer-wide { width: 380px; }
+.drawer[hidden] { display: none; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; }
+.drawer-head h2 { margin: 0; font-size: 16px; }
+.drawer-close {
+  background: none; border: none; color: var(--muted);
+  font-size: 16px; cursor: pointer; padding: 4px 8px;
+}
+.drawer-close:hover { color: #fff; }
+.drawer-action {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.watchlist-items { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.wl-item {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; cursor: pointer;
+  width: 100%; color: var(--text); text-align: right; font-size: 13px;
+}
+.wl-item:hover { border-color: var(--accent); }
+.wl-item .sym { font-weight: 800; direction: ltr; }
+.wl-item .nm { color: var(--muted); font-size: 11px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wl-item .q { direction: ltr; font-variant-numeric: tabular-nums; }
+.wl-item .q .chg-up { color: #26a69a; }
+.wl-item .q .chg-dn { color: #ef5350; }
+.wl-item .rm { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 2px 6px; }
+.wl-item .rm:hover { color: var(--accent); }
+#pine-code {
+  flex: 0 0 220px;
+  background: #0a0e14;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: #d6deeb;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 12.5px;
+  padding: 10px;
+  resize: vertical;
+  text-align: left;
+}
+#pine-code:focus { outline: none; border-color: var(--accent); }
+.pine-actions { display: flex; gap: 6px; }
+.btn-primary {
+  background: var(--accent); border: none; color: #fff;
+  border-radius: 8px; padding: 8px 14px; font-size: 13px;
+  cursor: pointer; font-weight: 700;
+}
+.btn-primary:hover { filter: brightness(1.15); }
+.btn-primary:disabled { opacity: .5; cursor: wait; }
+.pine-error {
+  background: rgba(239,83,80,.12);
+  border: 1px solid #ef5350;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #ffb4b0;
+  font-family: Consolas, monospace;
+  white-space: pre-wrap;
+  max-height: 120px;
+  overflow-y: auto;
+  text-align: left;
+}
+.pine-saved h3 { margin: 4px 0 6px; font-size: 13px; color: var(--muted); }
+.pine-saved { overflow-y: auto; }
+.saved-script {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; font-size: 12.5px;
+}
+.saved-script .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; text-align: left; }
+.saved-script button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 6px; }
+.saved-script button:hover { color: #fff; }
+.saved-script .del:hover { color: var(--accent); }
 #chart { flex: 1 1 auto; min-height: 0; }
 .footnote {
   flex: 0 0 auto;
@@ -105,4 +213,6 @@ body {
 .footnote a { color: var(--muted); }
 @media (max-width: 760px) {
   .brand-sub, .timeframes button[data-tf="15"], .timeframes button[data-tf="30"] { display: none; }
+  .hdr-btn { padding: 6px 8px; font-size: 12px; }
+  .drawer, .drawer-wide { width: min(86vw, 340px); }
 }

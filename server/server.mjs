@@ -206,6 +206,28 @@ app.get('/api/search', async (req, res) => {
 
 app.get('/api/health', (req, res) => res.json({ ok: true, twelvedata: !!TD_KEY }));
 
+app.get('/api/quote', async (req, res) => {
+    try {
+        const symbol = String(req.query.symbol || '').toUpperCase().replace(/[^A-Z0-9.\-^=]/g, '').slice(0, 12);
+        if (!symbol) return res.status(400).json({ error: 'symbol required' });
+        const ck = `quote:${symbol}`;
+        const hit = cacheGet(ck);
+        if (hit) return res.json(hit);
+        const bars = await nasdaqDaily(symbol);
+        if (bars.length < 2) throw new Error('no quote');
+        const last = bars[bars.length - 1], prev = bars[bars.length - 2];
+        const out = {
+            symbol,
+            price: +last.close.toFixed(2),
+            changePct: prev.close ? +(((last.close - prev.close) / prev.close * 100).toFixed(2)) : 0,
+        };
+        cacheSet(ck, out, 60 * 1000);
+        res.json(out);
+    } catch (e) {
+        res.status(502).json({ error: 'quote unavailable' });
+    }
+});
+
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 app.use((req, res) => res.sendFile(path.join(__dirname, '..', 'dist', 'index.html')));
 

@@ -12,7 +12,9 @@
   "license": "ISC",
   "dependencies": {
     "@luxalgo/vela": "^0.8.1",
-    "express": "^5.2.1"
+    "@luxalgo/vela-pinets": "^0.2.15",
+    "express": "^5.2.1",
+    "pinets": "^0.11.0"
   },
   "devDependencies": {
     "vite": "^8.3.2"

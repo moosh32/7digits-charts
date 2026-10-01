@@ -26,8 +26,29 @@
     <button data-tf="W">שבועי</button>
     <button data-tf="M">חודשי</button>
   </nav>
+  <button id="watchlist-toggle" class="hdr-btn">רשימת מעקב</button>
+  <button id="pine-toggle" class="hdr-btn">Pine Script</button>
   <div class="current-symbol" id="current-symbol">SPY</div>
 </header>
+<aside id="watchlist-panel" class="drawer" hidden>
+  <div class="drawer-head"><h2>רשימת מעקב</h2><button class="drawer-close" data-close="watchlist-panel">✕</button></div>
+  <button id="watchlist-add" class="drawer-action">＋ הוסף את <span id="watchlist-current" dir="ltr">SPY</span></button>
+  <div id="watchlist-items" class="watchlist-items"></div>
+</aside>
+<aside id="pine-panel" class="drawer drawer-wide" hidden>
+  <div class="drawer-head"><h2>Pine Script</h2><button class="drawer-close" data-close="pine-panel">✕</button></div>
+  <textarea id="pine-code" dir="ltr" spellcheck="false"></textarea>
+  <div class="pine-actions">
+    <button id="pine-run" class="btn-primary">הרץ על הגרף</button>
+    <button id="pine-save" class="hdr-btn">שמור</button>
+    <button id="pine-clear" class="hdr-btn">נקה מהגרף</button>
+  </div>
+  <div id="pine-error" class="pine-error" dir="ltr" hidden></div>
+  <div class="pine-saved">
+    <h3>הסקריפטים שלי</h3>
+    <div id="pine-saved-list"></div>
+  </div>
+</aside>
 <main id="chart"></main>
 <footer class="footnote">הנתונים באיחור קל לצורכי המחשה בלבד — לא המלצת מסחר. הגרפים מבוססים על <a href="https://velacharts.dev" target="_blank" rel="noopener">Vela™‎</a>.</footer>
 <script type="module" src="./app.js"></script>
