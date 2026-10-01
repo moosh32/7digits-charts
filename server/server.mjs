@@ -73,13 +73,68 @@ async function twelveDataBars(symbol, tfKey) {
     })).reverse();
 }
 
+// ---------- Nasdaq official API (primary for D/W/M, no key) ----------
+const num = (s) => parseFloat(String(s).replace(/[$,]/g, ''));
+const int = (s) => parseInt(String(s).replace(/,/g, ''), 10) || 0;
+
+async function nasdaqDaily(symbol) {
+    for (const ac of ['stocks', 'etf']) {
+        const r = await fetch(
+            `https://api.nasdaq.com/api/quote/${encodeURIComponent(symbol)}/historical?assetclass=${ac}&fromdate=2000-01-01&limit=9999`,
+            { headers: { 'User-Agent': UA, 'Accept': 'application/json' } });
+        if (!r.ok) continue;
+        const rows = (await r.json())?.data?.tradesTable?.rows || [];
+        const bars = rows.map((row) => ({
+            time: new Date(row.date + ' 00:00:00 +0000').getTime(),
+            open: num(row.open), high: num(row.high), low: num(row.low),
+            close: num(row.close), volume: int(row.volume),
+        })).filter((b) => isFinite(b.time) && isFinite(b.open) && isFinite(b.high) && isFinite(b.low) && isFinite(b.close));
+        if (bars.length) return bars.reverse(); // newest-first -> chronological
+    }
+    throw new Error('nasdaq: empty');
+}
+
+function resampleDaily(bars, tfKey) {
+    const out = [];
+    let cur = null;
+    const keyOf = (t) => {
+        const d = new Date(t);
+        if (tfKey === 'W') {
+            const mondayOffset = (d.getUTCDay() + 6) % 7;
+            return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - mondayOffset);
+        }
+        return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
+    };
+    for (const b of bars) {
+        const k = keyOf(b.time);
+        if (!cur || cur.k !== k) {
+            if (cur) out.push(cur.bar);
+            cur = { k, bar: { ...b } };
+        } else {
+            cur.bar.high = Math.max(cur.bar.high, b.high);
+            cur.bar.low = Math.min(cur.bar.low, b.low);
+            cur.bar.close = b.close;
+            cur.bar.volume += b.volume;
+        }
+    }
+    if (cur) out.push(cur.bar);
+    return out;
+}
+
 async function getBars(symbol, tfKey, tf) {
+    const eod = tfKey === 'D' || tfKey === 'W' || tfKey === 'M';
+    const errors = [];
+    if (eod) {
+        try {
+            const d = await nasdaqDaily(symbol);
+            return tfKey === 'D' ? d : resampleDaily(d, tfKey);
+        } catch (e) { errors.push(e.message); }
+    }
     try {
         return await yahooBars(symbol, tf);
-    } catch (e) {
-        if (TD_KEY) return twelveDataBars(symbol, tfKey);
-        throw e;
-    }
+    } catch (e) { errors.push(e.message); }
+    if (TD_KEY) return twelveDataBars(symbol, tfKey);
+    throw new Error(errors.join(' | ') || 'no data');
 }
 
 // ---------- cache ----------
@@ -136,14 +191,6 @@ app.get('/api/search', async (req, res) => {
 });
 
 app.get('/api/health', (req, res) => res.json({ ok: true, twelvedata: !!TD_KEY }));
-
-// TEMP debug — remove before handoff
-app.get('/api/debug-sources', async (req, res) => {
-    const out = {};
-    try { const r = await fetch('https://stooq.com/q/d/l/?s=aapl.us&i=d', { headers: { 'User-Agent': UA } }); out.stooq = r.status + ' ' + (await r.text()).slice(0, 60); } catch (e) { out.stooq = 'err ' + e.message; }
-    try { const r = await fetch('https://api.nasdaq.com/api/quote/AAPL/chart?assetclass=stocks', { headers: { 'User-Agent': UA, 'Accept': 'application/json' } }); out.nasdaq = r.status + ' ' + (await r.text()).slice(0, 60); } catch (e) { out.nasdaq = 'err ' + e.message; }
-    res.json(out);
-});
 
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 app.use((req, res) => res.sendFile(path.join(__dirname, '..', 'dist', 'index.html')));
