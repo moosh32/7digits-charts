@@ -193,9 +193,10 @@ const pineCode = document.getElementById('pine-code');
 const pineError = document.getElementById('pine-error');
 const pineRunBtn = document.getElementById('pine-run');
 pineCode.value = PINE_DEFAULT;
-let pineHandles = [];
+let pineRemovers = [];
 let savedScripts = JSON.parse(localStorage.getItem(PINE_KEY) || '[]');
 function saveScripts() { localStorage.setItem(PINE_KEY, JSON.stringify(savedScripts)); }
+pineCode.addEventListener('input', () => { pineError.hidden = true; });
 
 function pineTitle(src) {
     const m = src.match(/indicator\s*\(\s*"([^"]+)"/) || src.match(/strategy\s*\(\s*"([^"]+)"/);
@@ -207,9 +208,9 @@ pineRunBtn.addEventListener('click', async () => {
     pineRunBtn.disabled = true;
     pineRunBtn.textContent = 'מריץ…';
     try {
-        const res = await ws.chart.runIndicator(pineCode.value);
-        if (res.ok && res.handle) {
-            pineHandles.push(res.handle);
+        const res = await ws.chart.runScript(pineCode.value);
+        if (res.ok && typeof res.remove === 'function') {
+            pineRemovers.push(res.remove);
         } else {
             pineError.textContent = String(res.error?.message || res.error || 'שגיאה לא ידועה');
             pineError.hidden = false;
@@ -223,8 +224,9 @@ pineRunBtn.addEventListener('click', async () => {
 });
 
 document.getElementById('pine-clear').addEventListener('click', () => {
-    for (const h of pineHandles) { try { ws.chart.removeIndicator(h); } catch { /* noop */ } }
-    pineHandles = [];
+    for (const rm of pineRemovers) { try { rm(); } catch { /* noop */ } }
+    pineRemovers = [];
+    pineError.hidden = true;
 });
 
 document.getElementById('pine-save').addEventListener('click', () => {
