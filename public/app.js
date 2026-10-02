@@ -246,15 +246,33 @@ document.getElementById('pine-preset-vol').addEventListener('click', () => {
     pineCode.value = PINE_VOLUME; pineError.hidden = true;
 });
 
-// auto-run the MA + candle script on the charts at load
+// auto-run Israel's defaults on the charts at load:
+// - remove redundant native SMA/EMA/Volume (his Pine scripts replace them)
+// - run MA+candle script + volume script, unless already present (no duplicates)
 let maAutoRan = false;
 async function autoRunDefaults() {
     if (maAutoRan) return; maAutoRan = true;
     try {
         await ws.chart.data.ready();
-        const res = await ws.chart.runScript(PINE_DEFAULT);
-        if (res && res.ok && typeof res.remove === 'function') pineRemovers.push(res.remove);
-    } catch { /* leave the chart clean if the engine is not ready */ }
+        for (const h of ws.chart.indicators()) {
+            if (h.source) continue; // keep script indicators
+            const t = (h.title || '').toLowerCase();
+            const nt = (h.nativeType || '').toLowerCase();
+            if (nt === 'volume' || nt.includes('moving-average') ||
+                t === 'volume' || t === 'sma' || t === 'ema' || t.includes('moving average')) {
+                try { h.remove(); } catch { /* noop */ }
+            }
+        }
+        const titles = ws.chart.indicators().map((h) => h.title);
+        for (const src of [PINE_DEFAULT, PINE_VOLUME]) {
+            const m = src.match(/indicator\s*\(\s*"([^"]+)"/);
+            if (m && titles.includes(m[1])) continue;
+            try {
+                const res = await ws.chart.runScript(src);
+                if (res && res.ok && typeof res.remove === 'function') pineRemovers.push(res.remove);
+            } catch { /* leave the chart clean if the engine is not ready */ }
+        }
+    } catch { /* leave the chart clean */ }
 }
 autoRunDefaults();
 
