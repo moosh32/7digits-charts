@@ -209,6 +209,9 @@ isHVE = volume > ta.highest(volume[1], 5000)
 isHVY = not isHVE and volume >= ta.highest(volume, 252)
 isHVQ = not isHVE and not isHVY and volume >= ta.highest(volume, 63)
 volTxt = str.tostring(volume / 1000000, "#.#") + "M"
+plotshape(isHVE, "HVE", shape.labeldown, location.top, #6A1B9A, size=size.small)
+plotshape(isHVY, "HVY", shape.labeldown, location.top, #6A1B9A, size=size.small)
+plotshape(isHVQ, "HVQ", shape.labeldown, location.top, #6A1B9A, size=size.small)
 if isHVE
     label.new(bar_index, volume, "HVE " + volTxt, style=label.style_none, textcolor=color.white, size=size.small)
 if isHVY
