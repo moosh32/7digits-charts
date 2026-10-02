@@ -2,6 +2,8 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { startScanEngine } from './scans/snapshot.mjs';
+import { listScanners, runScanner } from './scans/definitions.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -89,7 +91,9 @@ async function nasdaqDaily(symbol) {
             time: new Date(row.date + ' 00:00:00 +0000').getTime(),
             open: num(row.open), high: num(row.high), low: num(row.low),
             close: num(row.close), volume: int(row.volume),
-        })).filter((b) => isFinite(b.time) && isFinite(b.open) && isFinite(b.high) && isFinite(b.low) && isFinite(b.close));
+        })).filter((b) => isFinite(b.time) && isFinite(b.open) && isFinite(b.high) && isFinite(b.low) && isFinite(b.close)
+            // drop degenerate placeholder rows (sub-penny print on ~no volume — Nasdaq data glitches)
+            && !(b.close < 0.01 && b.volume < 1000));
         if (bars.length) return bars.reverse(); // newest-first -> chronological
     }
     throw new Error('nasdaq: empty');
@@ -232,6 +236,17 @@ app.get('/api/quote', async (req, res) => {
         res.status(502).json({ error: 'quote unavailable' });
     }
 });
+
+app.get('/api/scans', (req, res) => res.json(listScanners()));
+
+app.get('/api/scan/:id', (req, res) => {
+    const out = runScanner(req.params.id);
+    if (!out) return res.status(404).json({ error: 'unknown scanner' });
+    if (out.error) return res.status(503).json(out);
+    res.json(out);
+});
+
+startScanEngine();
 
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 app.use((req, res) => res.sendFile(path.join(__dirname, '..', 'dist', 'index.html')));

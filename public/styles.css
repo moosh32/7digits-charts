@@ -216,3 +216,39 @@ body {
   .hdr-btn { padding: 6px 8px; font-size: 12px; }
   .drawer, .drawer-wide { width: min(86vw, 340px); }
 }
+
+/* ---- Scanners ---- */
+.scan-groups { display: flex; gap: 6px; flex-wrap: wrap; }
+.scan-groups button {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer;
+}
+.scan-groups button.active { background: var(--accent-soft); border-color: var(--accent); color: #fff; }
+.scan-list { display: flex; flex-direction: column; gap: 5px; overflow-y: auto; max-height: 32%; flex: 0 0 auto; }
+.scan-btn {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 8px 10px; cursor: pointer; text-align: right;
+  font-size: 13px; width: 100%;
+}
+.scan-btn:hover { border-color: var(--accent); }
+.scan-btn.active { border-color: var(--accent); background: var(--accent-soft); }
+.scan-btn .approx-tag {
+  display: inline-block; background: #3a2f12; color: #e8b93c; border-radius: 4px;
+  font-size: 10px; padding: 1px 6px; margin-right: 6px;
+}
+.scan-meta { font-size: 11px; color: var(--muted); }
+.scan-desc { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.scan-approx { font-size: 11px; color: #e8b93c; margin-bottom: 6px; }
+.scan-results { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.scan-row {
+  display: grid; grid-template-columns: 64px 1fr auto; gap: 4px 8px; align-items: center;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 7px 10px; cursor: pointer; font-size: 12px; text-align: right;
+  color: var(--text); width: 100%;
+}
+.scan-row:hover { border-color: var(--accent); }
+.scan-row .sym { font-weight: 800; direction: ltr; text-align: left; }
+.scan-row .nm { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scan-row .q { direction: ltr; font-variant-numeric: tabular-nums; text-align: left; }
+.scan-row .detail { grid-column: 1 / -1; color: var(--muted); font-size: 11px; }
+.chg-up { color: #26a69a; } .chg-dn { color: #ef5350; }

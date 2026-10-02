@@ -28,12 +28,20 @@
   </nav>
   <button id="watchlist-toggle" class="hdr-btn">רשימת מעקב</button>
   <button id="pine-toggle" class="hdr-btn">Pine Script</button>
+  <button id="scans-toggle" class="hdr-btn">סורקים</button>
   <div class="current-symbol" id="current-symbol">SPY</div>
 </header>
 <aside id="watchlist-panel" class="drawer" hidden>
   <div class="drawer-head"><h2>רשימת מעקב</h2><button class="drawer-close" data-close="watchlist-panel">✕</button></div>
   <button id="watchlist-add" class="drawer-action">＋ הוסף את <span id="watchlist-current" dir="ltr">SPY</span></button>
   <div id="watchlist-items" class="watchlist-items"></div>
+</aside>
+<aside id="scans-panel" class="drawer drawer-wide" hidden>
+  <div class="drawer-head"><h2>סורקים</h2><button class="drawer-close" data-close="scans-panel">✕</button></div>
+  <div id="scan-groups" class="scan-groups"></div>
+  <div id="scan-list" class="scan-list"></div>
+  <div id="scan-meta" class="scan-meta" hidden></div>
+  <div id="scan-results" class="scan-results"></div>
 </aside>
 <aside id="pine-panel" class="drawer drawer-wide" hidden>
   <div class="drawer-head"><h2>Pine Script</h2><button class="drawer-close" data-close="pine-panel">✕</button></div>

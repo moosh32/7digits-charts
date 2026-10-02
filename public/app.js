@@ -115,7 +115,7 @@ document.getElementById('timeframes').addEventListener('click', (e) => {
 window.addEventListener('resize', () => ws.resize());
 
 // ---- Drawers ----
-const drawers = { 'watchlist-toggle': 'watchlist-panel', 'pine-toggle': 'pine-panel' };
+const drawers = { 'watchlist-toggle': 'watchlist-panel', 'pine-toggle': 'pine-panel', 'scans-toggle': 'scans-panel' };
 for (const [btnId, panelId] of Object.entries(drawers)) {
     const btn = document.getElementById(btnId);
     const panel = document.getElementById(panelId);
@@ -127,6 +127,7 @@ for (const [btnId, panelId] of Object.entries(drawers)) {
         btn.classList.toggle('open', willOpen);
         if (willOpen && panelId === 'watchlist-panel') renderWatchlist();
         if (willOpen && panelId === 'pine-panel') renderSavedScripts();
+        if (willOpen && panelId === 'scans-panel') initScanners();
     });
 }
 document.querySelectorAll('.drawer-close').forEach((b) =>
@@ -253,5 +254,119 @@ function renderSavedScripts() {
         del.addEventListener('click', () => { savedScripts.splice(i, 1); saveScripts(); renderSavedScripts(); });
         d.append(t, load, del);
         box.appendChild(d);
+    }
+}
+
+// ---- Scanners ----
+let scanData = null, activeGroup = null, activeScan = null;
+
+async function initScanners() {
+    if (!scanData) {
+        try {
+            const r = await fetch('/api/scans');
+            scanData = await r.json();
+            activeGroup = scanData.groups[0].id;
+        } catch {
+            document.getElementById('scan-list').innerHTML =
+                '<div style="color:var(--muted);font-size:13px">הסורקים אינם זמינים כרגע.</div>';
+            return;
+        }
+    }
+    renderScanGroups();
+    renderScanList();
+}
+
+function renderScanGroups() {
+    const box = document.getElementById('scan-groups');
+    box.innerHTML = '';
+    for (const g of scanData.groups) {
+        const b = document.createElement('button');
+        b.textContent = g.name;
+        if (g.id === activeGroup) b.classList.add('active');
+        b.addEventListener('click', () => {
+            activeGroup = g.id; activeScan = null;
+            renderScanGroups(); renderScanList();
+            document.getElementById('scan-results').innerHTML = '';
+            document.getElementById('scan-meta').hidden = true;
+        });
+        box.appendChild(b);
+    }
+}
+
+function renderScanList() {
+    const box = document.getElementById('scan-list');
+    box.innerHTML = '';
+    for (const s of scanData.scanners.filter((x) => x.groups.includes(activeGroup))) {
+        const b = document.createElement('button');
+        b.className = 'scan-btn' + (s.id === activeScan ? ' active' : '');
+        b.innerHTML = '';
+        const t = document.createElement('span');
+        t.textContent = s.name;
+        b.appendChild(t);
+        if (s.approx) {
+            const tag = document.createElement('span');
+            tag.className = 'approx-tag';
+            tag.textContent = 'קירוב';
+            b.appendChild(tag);
+        }
+        b.title = s.desc;
+        b.addEventListener('click', () => runScan(s.id));
+        box.appendChild(b);
+    }
+}
+
+async function runScan(id) {
+    activeScan = id;
+    renderScanList();
+    const results = document.getElementById('scan-results');
+    const meta = document.getElementById('scan-meta');
+    results.innerHTML = '<div style="color:var(--muted);font-size:13px">סורק…</div>';
+    meta.hidden = true;
+    try {
+        const r = await fetch(`/api/scan/${encodeURIComponent(id)}`);
+        const out = await r.json();
+        if (!r.ok || out.error) {
+            results.innerHTML = `<div style="color:var(--muted);font-size:13px">${out.error === 'snapshot not ready' ? 'הנתונים עדיין נטענים — נסה שוב בעוד כמה דקות.' : 'שגיאה בהרצת הסריקה.'}</div>`;
+            return;
+        }
+        const asOf = new Date(out.asOf);
+        meta.innerHTML = '';
+        const d = document.createElement('div');
+        d.className = 'scan-desc';
+        d.textContent = out.desc;
+        meta.appendChild(d);
+        if (out.approx) {
+            const a = document.createElement('div');
+            a.className = 'scan-approx';
+            a.textContent = '⚠ קירוב: ' + out.approx;
+            meta.appendChild(a);
+        }
+        const m = document.createElement('div');
+        m.textContent = `נמצאו ${out.count} מניות · עודכן ${asOf.toLocaleDateString('he-IL')} ${asOf.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
+        meta.appendChild(m);
+        meta.hidden = false;
+        results.innerHTML = '';
+        if (!out.rows.length) {
+            results.innerHTML = '<div style="color:var(--muted);font-size:13px">אין תוצאות כרגע.</div>';
+            return;
+        }
+        for (const row of out.rows) {
+            const b = document.createElement('button');
+            b.className = 'scan-row';
+            const cls = row.chg >= 0 ? 'chg-up' : 'chg-dn';
+            const sign = row.chg >= 0 ? '+' : '';
+            b.innerHTML =
+                `<span class="sym"></span><span class="nm"></span>` +
+                `<span class="q">$${row.price} <span class="${cls}">${sign}${row.chg}%</span></span>` +
+                `<span class="detail"></span>`;
+            b.querySelector('.sym').textContent = row.s;
+            b.querySelector('.nm').textContent = row.name || '';
+            b.querySelector('.detail').textContent =
+                `${row.detail} · מחזור דולרי $${row.dvolM}M · נפח יחסי ${row.relVol}`;
+            b.addEventListener('click', () => setSymbol(row.s, row.name));
+            results.appendChild(b);
+        }
+    } catch {
+        results.innerHTML = '<div style="color:var(--muted);font-size:13px">שגיאה בהרצת הסריקה.</div>';
     }
 }
