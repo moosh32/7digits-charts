@@ -72,6 +72,9 @@ export async function fetchUniverse() {
     return out.filter((x) => (seen.has(x.s) ? false : (seen.add(x.s), true)));
 }
 
+// Leveraged single-stock ETFs missing from Nasdaq's ETF screener (verified live 2026-10-02).
+const LEVERAGED_ETFS = JSON.parse(fs.readFileSync(new URL('./leveraged-etfs.json', import.meta.url), 'utf8'));
+
 // ETFs: separate screener (no marketCap column); used only by the liquid-ETF scan.
 export async function fetchEtfUniverse() {
     const out = [];
@@ -91,6 +94,14 @@ export async function fetchEtfUniverse() {
         }
         offset += rows.length;
         if (!rows.length) break;
+    }
+    // append curated leveraged ETFs absent from the screener
+    const have = new Set(out.map((x) => x.s));
+    for (const x of LEVERAGED_ETFS) {
+        if (!have.has(x.s) && /^[A-Z0-9.\-]{1,10}$/.test(x.s)) {
+            out.push({ s: x.s, n: x.n, price: 10 }); // placeholder; real bars price it
+            have.add(x.s);
+        }
     }
     const seen = new Set();
     return out.filter((x) => (seen.has(x.s) ? false : (seen.add(x.s), true)));
