@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', '..', 'data');
 const SNAP_PATH = path.join(DATA_DIR, 'scan-snapshot.json');
+// Bump when computeFeatures gains/loses fields — forces a rebuild on next start.
+const SNAP_VERSION = 2;
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 
 const num = (s) => parseFloat(String(s).replace(/[$,]/g, ''));
@@ -408,7 +410,7 @@ export async function refreshSnapshot() {
         const prevEtf = snapshot?.etfFeats || {};
         for (const f of eresults) if (f) { etfFeats[f.s] = f; eok++; }
         for (const sym of Object.keys(prevEtf)) if (!etfFeats[sym]) etfFeats[sym] = prevEtf[sym];
-        snapshot = { asOf: new Date().toISOString(), feats, etfFeats };
+        snapshot = { v: SNAP_VERSION, asOf: new Date().toISOString(), feats, etfFeats };
         save();
         console.log(`scan snapshot done: ${ok} stocks + ${eok} ETFs`);
         return true;
@@ -422,6 +424,9 @@ export async function refreshSnapshot() {
 
 export function startScanEngine() {
     load();
-    if (!snapshot) setTimeout(() => refreshSnapshot(), 5000);
+    if (!snapshot || snapshot.v !== SNAP_VERSION) {
+        console.log(`scan snapshot v${snapshot?.v} != code v${SNAP_VERSION} — rebuilding…`);
+        setTimeout(() => refreshSnapshot(), 5000);
+    }
     setInterval(() => refreshSnapshot(), 4 * 60 * 60 * 1000);
 }
