@@ -17,6 +17,19 @@ const has = (...vs) => vs.every((v) => v != null);
 const SCANNERS = [
     // ---------------- QULLAMAGGIE ----------------
     {
+        id: 'q-watchlist', name: 'ווטצ׳ליסט APTR/$VOL', groups: ['qullamaggie'], src: 'all',
+        desc: 'שחזור ווטצ׳ליסט APTR/$VOL: APTR (ATR14 כאחוז מהמחיר) ‎≥ 3.8 ומחזור דולרי של יום אתמול ‎≥ $100M. כיול אמפירי מול רשימת 2026-10-02 (תופס ~88/94).',
+        run(f) {
+            if (!has(f.atrPct, f.vol, f.price)) return null;
+            const vd = f.vol * f.price;
+            return {
+                pass: f.atrPct >= 3.8 && vd >= 100 * M,
+                detail: `APTR ${pct(f.atrPct)} · $${money(vd)}`,
+                sort: vd,
+            };
+        },
+    },
+    {
         id: 'q-adr', name: 'ADR לדגלים', groups: ['qullamaggie'],
         desc: 'מחזור דולרי ממוצע $15M+, תנודתיות חודשית 5%+. יקום המניות שמהן קולמאגי מחפש דגלים.',
         run(f) {
@@ -603,7 +616,9 @@ export function runScanner(id) {
     const hit = resultsCache.get(cacheKey);
     if (hit && Date.now() < hit.exp) return hit.out;
     const rows = [];
-    const source = def.src === 'etf' ? (snap.etfFeats || {}) : snap.feats;
+    const source = def.src === 'etf' ? (snap.etfFeats || {})
+        : def.src === 'all' ? { ...snap.feats, ...(snap.etfFeats || {}) }
+        : snap.feats;
     for (const sym of Object.keys(source)) {
         const f = source[sym];
         let r;
