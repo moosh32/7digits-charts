@@ -210,11 +210,11 @@ isHVY = not isHVE and volume >= ta.highest(volume, 252)
 isHVQ = not isHVE and not isHVY and volume >= ta.highest(volume, 63)
 volTxt = str.tostring(volume / 1000000, "#.#") + "M"
 if isHVE
-    label.new(bar_index, volume, "HVE " + volTxt, style=label.style_label_down, color=#6A1B9A, textcolor=color.white, size=size.small)
+    label.new(bar_index, volume, "HVE " + volTxt, style=label.style_none, textcolor=color.white, size=size.small)
 if isHVY
-    label.new(bar_index, volume, "HVY " + volTxt, style=label.style_label_down, color=#6A1B9A, textcolor=color.white, size=size.small)
+    label.new(bar_index, volume, "HVY " + volTxt, style=label.style_none, textcolor=color.white, size=size.small)
 if isHVQ
-    label.new(bar_index, volume, "HVQ " + volTxt, style=label.style_label_down, color=#6A1B9A, textcolor=color.white, size=size.small)
+    label.new(bar_index, volume, "HVQ " + volTxt, style=label.style_none, textcolor=color.white, size=size.small)
 plot(volMa, "ממוצע 50", color.orange)
 plot(volume, "ווליום", volume < volMa ? color.gray : color.blue, style=plot.style_columns)`;
 const pineCode = document.getElementById('pine-code');
