@@ -209,9 +209,12 @@ isHVE = volume > ta.highest(volume[1], 5000)
 isHVY = not isHVE and volume >= ta.highest(volume, 252)
 isHVQ = not isHVE and not isHVY and volume >= ta.highest(volume, 63)
 volTxt = str.tostring(volume / 1000000, "#.#") + "M"
-plotshape(isHVE, "HVE", shape.labeldown, location.top, #6A1B9A, textcolor=color.white, text="HVE " + volTxt, size=size.small)
-plotshape(isHVY, "HVY", shape.labeldown, location.top, #6A1B9A, textcolor=color.white, text="HVY " + volTxt, size=size.small)
-plotshape(isHVQ, "HVQ", shape.labeldown, location.top, #6A1B9A, textcolor=color.white, text="HVQ " + volTxt, size=size.small)
+if isHVE
+    label.new(bar_index, volume, "HVE " + volTxt, style=label.style_label_down, color=#6A1B9A, textcolor=color.white, size=size.small)
+if isHVY
+    label.new(bar_index, volume, "HVY " + volTxt, style=label.style_label_down, color=#6A1B9A, textcolor=color.white, size=size.small)
+if isHVQ
+    label.new(bar_index, volume, "HVQ " + volTxt, style=label.style_label_down, color=#6A1B9A, textcolor=color.white, size=size.small)
 plot(volMa, "ממוצע 50", color.orange)
 plot(volume, "ווליום", volume < volMa ? color.gray : color.blue, style=plot.style_columns)`;
 const pineCode = document.getElementById('pine-code');
@@ -233,6 +236,11 @@ pineRunBtn.addEventListener('click', async () => {
     pineRunBtn.disabled = true;
     pineRunBtn.textContent = 'מריץ…';
     try {
+        // avoid stacking duplicates: replace an existing indicator with the same title
+        const t = pineTitle(pineCode.value);
+        for (const h of ws.chart.indicators()) {
+            if (h.title === t) { try { h.remove(); } catch { /* noop */ } }
+        }
         const res = await ws.chart.runScript(pineCode.value);
         if (res.ok && typeof res.remove === 'function') {
             pineRemovers.push(res.remove);
