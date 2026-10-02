@@ -187,9 +187,17 @@ document.getElementById('watchlist-add').addEventListener('click', () => {
 // ---- Pine Script editor ----
 const PINE_KEY = '7d-pine-scripts';
 const PINE_DEFAULT = `//@version=5
-indicator("EMA 20/50", overlay=true)
-plot(ta.ema(close, 20), "EMA 20", color.orange)
-plot(ta.ema(close, 50), "EMA 50", color.blue)`;
+indicator("ממוצעים ונרות", overlay=true)
+plot(ta.ema(close, 10), "EMA 10", color.white)
+plot(ta.ema(close, 20), "EMA 20", color.blue)
+plot(ta.sma(close, 50), "SMA 50", color.green)
+plot(ta.sma(close, 200), "SMA 200", color.red)
+barcolor(close >= open ? color.green : color.red)`;
+const PINE_VOLUME = `//@version=5
+indicator("ווליום", overlay=false)
+volMa = ta.sma(volume, 50)
+plot(volMa, "ממוצע 50", color.orange)
+plot(volume, "ווליום", volume < volMa ? color.gray : color.blue, style=plot.style_columns)`;
 const pineCode = document.getElementById('pine-code');
 const pineError = document.getElementById('pine-error');
 const pineRunBtn = document.getElementById('pine-run');
@@ -229,6 +237,26 @@ document.getElementById('pine-clear').addEventListener('click', () => {
     pineRemovers = [];
     pineError.hidden = true;
 });
+
+// preset scripts: Israel's defaults
+document.getElementById('pine-preset-ma').addEventListener('click', () => {
+    pineCode.value = PINE_DEFAULT; pineError.hidden = true;
+});
+document.getElementById('pine-preset-vol').addEventListener('click', () => {
+    pineCode.value = PINE_VOLUME; pineError.hidden = true;
+});
+
+// auto-run the MA + candle script on the charts at load
+let maAutoRan = false;
+async function autoRunDefaults() {
+    if (maAutoRan) return; maAutoRan = true;
+    try {
+        await ws.chart.data.ready();
+        const res = await ws.chart.runScript(PINE_DEFAULT);
+        if (res && res.ok && typeof res.remove === 'function') pineRemovers.push(res.remove);
+    } catch { /* leave the chart clean if the engine is not ready */ }
+}
+autoRunDefaults();
 
 document.getElementById('pine-save').addEventListener('click', () => {
     const code = pineCode.value.trim();
