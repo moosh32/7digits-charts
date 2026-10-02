@@ -582,6 +582,125 @@ const SCANNERS = [
             };
         },
     },
+    // ---------------- PORTED BUILDER SCANS (part 1+2) ----------------
+    // Liquidity (close>=10, 20d avg(close*vol)>=5M) is a FLAG, never a pre-filter.
+    // Split suspects: one-day close jump >40%.
+    {
+        id: 'rs-new-high', name: 'RS שיא חדש מול SPY', groups: ['builder'],
+        desc: 'RS=סגירה/SPY (252 ימי מסחר משותפים מיושרי תאריך): RS(t) בשיא 252 הימים כולל t, והמחיר 0.1%–10% מתחת לשיא 252 הימים (סגירה, לא תוך-יומי). מגמה: מעל SMA50 ו-SMA200. דגל נזילות/חשד ספליט בתיאור.',
+        run(f) {
+            if (!has(f.rsShared, f.rsNewHigh252, f.rsGap, f.sma50, f.sma200)) return null;
+            if (f.rsShared < 252 || !f.rsNewHigh252) return null;
+            if (!(f.rsGap >= 0.1 && f.rsGap <= 10)) return null;
+            if (!(f.price > f.sma50 && f.price > f.sma200)) return null;
+            return {
+                pass: true,
+                detail: `RS שיא 252j · מרחק ${f.rsGap.toFixed(1)}% מהשיא · נזילות ${f.liqFlag ? '✓' : '✗'}${f.splitSuspect ? ' · חשד ספליט!' : ''}`,
+                sort: -f.rsGap,
+            };
+        },
+    },
+    {
+        id: 'dbl-inside-bar', name: 'Inside Bar כפול', groups: ['builder'],
+        desc: 'נר פנימי כפול: high(t)<=high(t-1) ו-low(t)>=low(t-1), וגם high(t-1)<=high(t-2) ו-low(t-1)>=low(t-2). שוויון מותר; שדה strict מסמן את המחמירים. דירוג לפי מחזור דולרי.',
+        run(f) {
+            if (!has(f.dayHigh, f.dayLow, f.hi1, f.lo1, f.hi2, f.lo2, f.dvol20)) return null;
+            const in1 = f.dayHigh <= f.hi1 && f.dayLow >= f.lo1;
+            const in2 = f.hi1 <= f.hi2 && f.lo1 >= f.lo2;
+            if (!(in1 && in2)) return null;
+            const strict = f.dayHigh < f.hi1 && f.dayLow > f.lo1 && f.hi1 < f.hi2 && f.lo1 > f.lo2;
+            return {
+                pass: true,
+                detail: `${strict ? 'strict' : 'שוויון'} · נזילות ${f.liqFlag ? '✓' : '✗'}${f.splitSuspect ? ' · חשד ספליט!' : ''}`,
+                sort: f.dvol20,
+            };
+        },
+    },
+    {
+        id: 'hvy', name: 'HVY — שיא נפח 252 יום', groups: ['builder'],
+        desc: 'נפח(t) >= שיא הנפח ב-252 הימים האחרונים כולל t.',
+        run(f) {
+            if (!has(f.vol, f.volMax252)) return null;
+            if (!(f.vol >= f.volMax252)) return null;
+            return {
+                pass: true,
+                detail: `נפח ${(f.vol / M).toFixed(1)}M · נזילות ${f.liqFlag ? '✓' : '✗'}${f.splitSuspect ? ' · חשד ספליט!' : ''}`,
+                sort: f.vol,
+            };
+        },
+    },
+    {
+        id: 'hve', name: 'HVE — שיא נפח היסטורי', groups: ['builder'],
+        desc: 'נפח(t) >= שיא הנפח בכל ההיסטוריה (למעט נר ה-IPO הראשון), מינימום 60 ימי מסחר.',
+        run(f) {
+            if (!has(f.vol, f.volMaxAll, f.bars)) return null;
+            if (f.bars < 60) return null;
+            if (!(f.vol >= f.volMaxAll)) return null;
+            return {
+                pass: true,
+                detail: `נפח ${(f.vol / M).toFixed(1)}M שיא היסטורי · נזילות ${f.liqFlag ? '✓' : '✗'}${f.splitSuspect ? ' · חשד ספליט!' : ''}`,
+                sort: f.vol,
+            };
+        },
+    },
+    {
+        id: 'flag-40', name: 'דגל 40%+', groups: ['builder'],
+        desc: 'דגל צמוד אחרי עמוד: דגל k=5..15 ימים (הקטן ביותר), עמוד (ch/pl-1)>=40%, עומק דגל<=25%, התכווצות טווח, מגמה: סגירה>EMA10,EMA20 ועולות מול לפני 3 ימים, מיקום cl<=סגירה<=ch*1.03.',
+        run(f) {
+            if (!has(f.flag40, f.ema10, f.ema10Lag3, f.ema20, f.ema20Lag3)) return null;
+            const g = f.flag40;
+            if (!(f.price > f.ema10 && f.price > f.ema20)) return null;
+            if (!(f.ema10 > f.ema10Lag3 && f.ema20 > f.ema20Lag3)) return null;
+            if (!(g.cl <= f.price && f.price <= g.ch * 1.03)) return null;
+            return {
+                pass: true,
+                detail: `דגל ${g.k}j · עמוד ${g.run.toFixed(0)}% · עומק ${g.depth.toFixed(1)}%${g.volDryUp ? ' · נפח מתייבש' : ''} · נזילות ${f.liqFlag ? '✓' : '✗'}${f.splitSuspect ? ' · חשד ספליט!' : ''}`,
+                sort: g.run,
+            };
+        },
+    },
+    {
+        id: 'flag-htf', name: 'דגל HTF 90%+', groups: ['builder'],
+        desc: 'וריאנט HTF של דגל 40%+: עמוד מינימום 90%, חלון עמוד 40 יום, שאר הכללים זהים.',
+        run(f) {
+            if (!has(f.flagHtf, f.ema10, f.ema10Lag3, f.ema20, f.ema20Lag3)) return null;
+            const g = f.flagHtf;
+            if (!(f.price > f.ema10 && f.price > f.ema20)) return null;
+            if (!(f.ema10 > f.ema10Lag3 && f.ema20 > f.ema20Lag3)) return null;
+            if (!(g.cl <= f.price && f.price <= g.ch * 1.03)) return null;
+            return {
+                pass: true,
+                detail: `דגל ${g.k}j · עמוד ${g.run.toFixed(0)}% · עומק ${g.depth.toFixed(1)}%${g.volDryUp ? ' · נפח מתייבש' : ''} · נזילות ${f.liqFlag ? '✓' : '✗'}${f.splitSuspect ? ' · חשד ספליט!' : ''}`,
+                sort: g.run,
+            };
+        },
+    },
+    {
+        id: 'htf-djylab', name: 'HTF DJYLAB', groups: ['builder'],
+        desc: 'שיא 10–25 יום אחורה שלא נשבר, עמוד 3–40 יום עם רווח 100%+, נפח עמוד מקסימלי 1.3x מממוצע 5 הימים לפניו, דגל: עומק<=25% ונפח דגל<=0.75x נפח עמוד, סגירה בתוך 3% מהשיא.',
+        run(f) {
+            if (!has(f.djy)) return null;
+            const g = f.djy;
+            return {
+                pass: true,
+                detail: `רווח עמוד ${g.gain.toFixed(0)}% · עומק דגל ${g.depth.toFixed(1)}% · אורך עמוד ${g.poleLen}j${g.nearTop ? ' · ליד שיא' : ` · ${g.belowPeak.toFixed(1)}% מתחת לשיא`} · נזילות ${f.liqFlag ? '✓' : '✗'}${f.splitSuspect ? ' · חשד ספליט!' : ''}`,
+                sort: g.gain,
+            };
+        },
+    },
+    {
+        id: 'vcp-port', name: 'VCP (פורט)', groups: ['builder'],
+        desc: 'EMA8>EMA21>EMA50 עולים (t מול t-1), 120 נרות. פיבוט=שיא 60 הנרות לפני t, בסיס>=10 נרות, עומק<25%, סגירה>=0.88*פיבוט, שלישים מתכווצים d1>d2>d3, נפח 10 ימים מתחת לממוצע הבסיס. דירוג: BREAKING/PRIMED/FORMING.',
+        run(f) {
+            if (!has(f.vcp)) return null;
+            const g = f.vcp;
+            return {
+                pass: true,
+                detail: `${g.grade} · בסיס ${g.baseLen}j · עומק ${g.depth.toFixed(1)}% · נזילות ${f.liqFlag ? '✓' : '✗'}${f.splitSuspect ? ' · חשד ספליט!' : ''}`,
+                sort: g.grade === 'BREAKING' ? 3 : g.grade === 'PRIMED' ? 2 : 1,
+            };
+        },
+    },
 ];
 
 export const GROUPS = [
@@ -589,6 +708,7 @@ export const GROUPS = [
     { id: 'stokbee', name: 'סטוקבי' },
     { id: 'setups', name: 'סטאפים' },
     { id: 'room', name: 'חדר הסורקים' },
+    { id: 'builder', name: 'בילדר' },
 ];
 
 // exported for testing
