@@ -192,10 +192,26 @@ plot(ta.ema(close, 10), "EMA 10", color.white)
 plot(ta.ema(close, 20), "EMA 20", color.blue)
 plot(ta.sma(close, 50), "SMA 50", color.green)
 plot(ta.sma(close, 200), "SMA 200", color.red)
-barcolor(close >= open ? color.green : color.red)`;
+// Pocket Pivot (Gil Morales): up day, volume > highest down-volume of prior 10 days
+downVol = close < open ? volume : 0
+pocketPivot = close > open and volume > ta.highest(downVol[1], 10)
+plotshape(pocketPivot, "Pocket Pivot", shape.diamond, location.belowbar, color.new(color.white, 45), size=size.small)
+// HVE/HVQ/HVY candles in dark purple
+isHVE = volume > ta.highest(volume[1], 5000)
+isHVY = volume >= ta.highest(volume, 252)
+isHVQ = volume >= ta.highest(volume, 63)
+isHV = isHVE or isHVY or isHVQ
+barcolor(isHV ? #6A1B9A : (close >= open ? color.green : color.red))`;
 const PINE_VOLUME = `//@version=5
 indicator("ווליום", overlay=false)
 volMa = ta.sma(volume, 50)
+isHVE = volume > ta.highest(volume[1], 5000)
+isHVY = not isHVE and volume >= ta.highest(volume, 252)
+isHVQ = not isHVE and not isHVY and volume >= ta.highest(volume, 63)
+volTxt = str.tostring(volume / 1000000, "#.#") + "M"
+plotshape(isHVE, "HVE", shape.labeldown, location.top, #6A1B9A, textcolor=color.white, text="HVE " + volTxt, size=size.small)
+plotshape(isHVY, "HVY", shape.labeldown, location.top, #6A1B9A, textcolor=color.white, text="HVY " + volTxt, size=size.small)
+plotshape(isHVQ, "HVQ", shape.labeldown, location.top, #6A1B9A, textcolor=color.white, text="HVQ " + volTxt, size=size.small)
 plot(volMa, "ממוצע 50", color.orange)
 plot(volume, "ווליום", volume < volMa ? color.gray : color.blue, style=plot.style_columns)`;
 const pineCode = document.getElementById('pine-code');
@@ -263,10 +279,13 @@ async function autoRunDefaults() {
                 try { h.remove(); } catch { /* noop */ }
             }
         }
-        const titles = ws.chart.indicators().map((h) => h.title);
+        // drop stale copies of our own default scripts so the newest code always runs
+        for (const h of ws.chart.indicators()) {
+            if (h.source && (h.title === 'ממוצעים ונרות' || h.title === 'ווליום')) {
+                try { h.remove(); } catch { /* noop */ }
+            }
+        }
         for (const src of [PINE_DEFAULT, PINE_VOLUME]) {
-            const m = src.match(/indicator\s*\(\s*"([^"]+)"/);
-            if (m && titles.includes(m[1])) continue;
             try {
                 const res = await ws.chart.runScript(src);
                 if (res && res.ok && typeof res.remove === 'function') pineRemovers.push(res.remove);
