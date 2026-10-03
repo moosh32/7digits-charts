@@ -67,24 +67,41 @@ const ws = new VelaWorkspace('#chart', {
     },
 });
 
-// keep our Hebrew chrome (symbol display, timeframe highlight) following the active cell
+// keep our Hebrew chrome (symbol display, timeframe highlight) following the active cell.
+// NOTE: VelaWorkspace has no cell-change events, so we track the active cell by polling.
 function refreshChrome() {
-    const cell = ws.active;
+    let cell = null;
+    try { cell = ws.active; } catch { cell = null; }
+    if (!cell) return;
     const sym = String(cell.symbol || '').replace(/^stocks:/i, '').toUpperCase() || currentSym;
     currentSym = sym;
-    currentSymbol.textContent = sym;
-    document.getElementById('watchlist-current').textContent = sym;
+    const cs = document.getElementById('current-symbol');
+    if (cs) cs.textContent = sym;
+    const wc = document.getElementById('watchlist-current');
+    if (wc) wc.textContent = sym;
     document.querySelectorAll('#timeframes button').forEach((b) =>
         b.classList.toggle('active', b.dataset.tf === cell.timeframe));
 }
-ws.onCells((e) => {
-    if (e.kind === 'active') refreshChrome();
-    // a newly revealed cell boots with Israel's default scripts too
-    if (e.kind === 'created') {
-        const c = ws.cell(e.id);
-        if (c) runDefaultScripts(c.chart).then(() => applyMarkersPrefToChart(c.chart)).catch(() => {});
+let lastActiveId = null;
+try { lastActiveId = ws.active?.id || null; } catch { lastActiveId = null; }
+setInterval(() => {
+    let id = null;
+    try { id = ws.active?.id || null; } catch { id = null; }
+    if (id && id !== lastActiveId) { lastActiveId = id; refreshChrome(); }
+}, 400);
+
+// after revealing the 2nd chart, boot it with Israel's default scripts too
+async function ensureDefaultsOnAllCells() {
+    for (let i = 0; i < 25; i++) {
+        let n = 0;
+        try { n = ws.cells().length; } catch { n = 0; }
+        if (n >= 2) break;
+        await new Promise((r) => setTimeout(r, 200));
     }
-});
+    try {
+        for (const c of ws.cells()) await runDefaultScripts(c.chart);
+    } catch { /* noop */ }
+}
 
 let currentSym = 'SPY';
 const currentNames = { SPY: 'S&P 500 ETF' };
@@ -158,6 +175,7 @@ chartCountBox?.addEventListener('click', (e) => {
     try { localStorage.setItem(CHART_LAYOUT_KEY, chartLayout); } catch { /* noop */ }
     paintChartCount();
     ws.setLayout(chartLayout);
+    if (chartLayout === '2h') ensureDefaultsOnAllCells();
     requestAnimationFrame(() => { try { ws.resize(); } catch { /* noop */ } });
 });
 paintChartCount();
