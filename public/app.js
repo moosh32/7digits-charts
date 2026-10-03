@@ -188,6 +188,7 @@ document.getElementById('watchlist-add').addEventListener('click', () => {
 const PINE_KEY = '7d-pine-scripts';
 const PINE_DEFAULT = `//@version=5
 indicator("ממוצעים ונרות", overlay=true)
+showMarkers = input.bool(true, "הצג סימנים על הגרף")
 plot(ta.ema(close, 10), "EMA 10", color.white)
 plot(ta.ema(close, 20), "EMA 20", color.blue)
 plot(ta.sma(close, 50), "SMA 50", color.green)
@@ -195,7 +196,7 @@ plot(ta.sma(close, 200), "SMA 200", color.red)
 // Pocket Pivot (Gil Morales): up day, volume > highest down-volume of prior 10 days
 downVol = close < open ? volume : 0
 pocketPivot = close > open and volume > ta.highest(downVol[1], 10)
-plotshape(pocketPivot, "Pocket Pivot", shape.diamond, location.belowbar, color.new(color.white, 45), size=size.small)
+plotshape(showMarkers and pocketPivot, "Pocket Pivot", shape.diamond, location.belowbar, color.new(color.white, 45), size=size.small)
 // HVE/HVQ/HVY candles in dark purple
 isHVE = volume > ta.highest(volume[1], 5000)
 isHVY = volume >= ta.highest(volume, 252)
@@ -204,35 +205,47 @@ isHV = isHVE or isHVY or isHVQ
 barcolor(isHV ? #6A1B9A : (close >= open ? color.green : color.red))`;
 const PINE_VOLUME = `//@version=5
 indicator("ווליום", overlay=false)
+showMarkers = input.bool(true, "הצג סימנים על הגרף")
 volMa = ta.sma(volume, 50)
 isHVE = volume > ta.highest(volume[1], 5000)
 isHVY = not isHVE and volume >= ta.highest(volume, 252)
 isHVQ = not isHVE and not isHVY and volume >= ta.highest(volume, 63)
 volTxt = str.tostring(volume / 1000000, "#.#") + "M"
-plotshape(isHVE, "HVE", shape.labeldown, location.top, #6A1B9A, size=size.small)
-plotshape(isHVY, "HVY", shape.labeldown, location.top, #6A1B9A, size=size.small)
-plotshape(isHVQ, "HVQ", shape.labeldown, location.top, #6A1B9A, size=size.small)
-if isHVE
+plotshape(showMarkers and isHVE, "HVE", shape.labeldown, location.top, #6A1B9A, size=size.small)
+plotshape(showMarkers and isHVY, "HVY", shape.labeldown, location.top, #6A1B9A, size=size.small)
+plotshape(showMarkers and isHVQ, "HVQ", shape.labeldown, location.top, #6A1B9A, size=size.small)
+if showMarkers and isHVE
     label.new(bar_index, volume, "HVE " + volTxt, style=label.style_none, textcolor=color.white, size=size.small)
-if isHVY
+if showMarkers and isHVY
     label.new(bar_index, volume, "HVY " + volTxt, style=label.style_none, textcolor=color.white, size=size.small)
-if isHVQ
+if showMarkers and isHVQ
     label.new(bar_index, volume, "HVQ " + volTxt, style=label.style_none, textcolor=color.white, size=size.small)
 plot(volMa, "ממוצע 50", color.orange)
 plot(volume, "ווליום", volume < volMa ? color.gray : color.blue, style=plot.style_columns)`;
 const PINE_RVOL30 = `//@version=5
 indicator("RVOL 30%", overlay=true)
+showMarkers = input.bool(true, "הצג סימנים על הגרף")
 // Jeff Sun RVOL = volume vs 50-day average; yellow candle when >= 30% above average
 rvolLen = input.int(50, "אורך ממוצע נפח", minval=1)
 rvolThr = input.float(1.3, "סף RVOL", minval=1.0, step=0.05)
 rvol = volume / ta.sma(volume, rvolLen)
 isRvol30 = rvol >= rvolThr
 barcolor(isRvol30 ? color.yellow : na)
-plotshape(isRvol30, "RVOL 30%", shape.triangleup, location.belowbar, color.yellow, size=size.tiny)`;
+plotshape(showMarkers and isRvol30, "RVOL 30%", shape.triangleup, location.belowbar, color.yellow, size=size.tiny)`;
 const pineCode = document.getElementById('pine-code');
 const pineError = document.getElementById('pine-error');
 const pineRunBtn = document.getElementById('pine-run');
-pineCode.value = PINE_DEFAULT;
+// "הצג סימנים על הגרף" — hides chart markers (diamonds, RVOL/volume triangles
+// and HVE/HVY/HVQ labels) from the default scripts; candle coloring stays.
+const MARKERS_KEY = '7d-show-markers';
+const MARKERS_INPUT_ON = 'input.bool(true, "הצג סימנים על הגרף")';
+const MARKERS_INPUT_OFF = 'input.bool(false, "הצג סימנים על הגרף")';
+let showMarkers = true;
+try { showMarkers = JSON.parse(localStorage.getItem(MARKERS_KEY) ?? 'true'); } catch { showMarkers = true; }
+function withMarkersPref(src) {
+    return showMarkers ? src : src.split(MARKERS_INPUT_ON).join(MARKERS_INPUT_OFF);
+}
+pineCode.value = withMarkersPref(PINE_DEFAULT);
 let pineRemovers = [];
 let savedScripts = JSON.parse(localStorage.getItem(PINE_KEY) || '[]');
 function saveScripts() { localStorage.setItem(PINE_KEY, JSON.stringify(savedScripts)); }
@@ -253,7 +266,7 @@ pineRunBtn.addEventListener('click', async () => {
         for (const h of ws.chart.indicators()) {
             if (h.title === t) { try { h.remove(); } catch { /* noop */ } }
         }
-        const res = await ws.chart.runScript(pineCode.value);
+        const res = await ws.chart.runScript(withMarkersPref(pineCode.value));
         if (res.ok && typeof res.remove === 'function') {
             pineRemovers.push(res.remove);
         } else {
@@ -276,19 +289,36 @@ document.getElementById('pine-clear').addEventListener('click', () => {
 
 // preset scripts: Israel's defaults
 document.getElementById('pine-preset-ma').addEventListener('click', () => {
-    pineCode.value = PINE_DEFAULT; pineError.hidden = true;
+    pineCode.value = withMarkersPref(PINE_DEFAULT); pineError.hidden = true;
 });
 document.getElementById('pine-preset-vol').addEventListener('click', () => {
-    pineCode.value = PINE_VOLUME; pineError.hidden = true;
+    pineCode.value = withMarkersPref(PINE_VOLUME); pineError.hidden = true;
 });
 document.getElementById('pine-preset-rvol').addEventListener('click', () => {
-    pineCode.value = PINE_RVOL30; pineError.hidden = true;
+    pineCode.value = withMarkersPref(PINE_RVOL30); pineError.hidden = true;
 });
 
 // auto-run Israel's defaults on the charts at load:
 // - remove redundant native SMA/EMA/Volume (his Pine scripts replace them)
 // - run MA+candle script + volume script, unless already present (no duplicates)
 let maAutoRan = false;
+async function runDefaultScripts() {
+    try {
+        await ws.chart.data.ready();
+        // drop stale copies of our own default scripts so the newest code always runs
+        for (const h of ws.chart.indicators()) {
+            if (h.source && (h.title === 'ממוצעים ונרות' || h.title === 'ווליום' || h.title === 'RVOL 30%')) {
+                try { h.remove(); } catch { /* noop */ }
+            }
+        }
+        for (const src of [PINE_DEFAULT, PINE_VOLUME, PINE_RVOL30]) {
+            try {
+                const res = await ws.chart.runScript(withMarkersPref(src));
+                if (res && res.ok && typeof res.remove === 'function') pineRemovers.push(res.remove);
+            } catch { /* leave the chart clean if the engine is not ready */ }
+        }
+    } catch { /* leave the chart clean */ }
+}
 async function autoRunDefaults() {
     if (maAutoRan) return; maAutoRan = true;
     try {
@@ -302,21 +332,21 @@ async function autoRunDefaults() {
                 try { h.remove(); } catch { /* noop */ }
             }
         }
-        // drop stale copies of our own default scripts so the newest code always runs
-        for (const h of ws.chart.indicators()) {
-            if (h.source && (h.title === 'ממוצעים ונרות' || h.title === 'ווליום' || h.title === 'RVOL 30%')) {
-                try { h.remove(); } catch { /* noop */ }
-            }
-        }
-        for (const src of [PINE_DEFAULT, PINE_VOLUME, PINE_RVOL30]) {
-            try {
-                const res = await ws.chart.runScript(src);
-                if (res && res.ok && typeof res.remove === 'function') pineRemovers.push(res.remove);
-            } catch { /* leave the chart clean if the engine is not ready */ }
-        }
     } catch { /* leave the chart clean */ }
+    await runDefaultScripts();
 }
 autoRunDefaults();
+
+// settings toggle: show/hide chart markers from the default scripts
+const markersChk = document.getElementById('pine-markers');
+if (markersChk) {
+    markersChk.checked = showMarkers;
+    markersChk.addEventListener('change', async () => {
+        showMarkers = markersChk.checked;
+        try { localStorage.setItem(MARKERS_KEY, JSON.stringify(showMarkers)); } catch { /* noop */ }
+        await runDefaultScripts();
+    });
+}
 
 document.getElementById('pine-save').addEventListener('click', () => {
     const code = pineCode.value.trim();

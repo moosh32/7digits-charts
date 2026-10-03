@@ -169,6 +169,9 @@ body {
 }
 #pine-code:focus { outline: none; border-color: var(--accent); }
 .pine-actions { display: flex; gap: 6px; }
+.pine-settings { padding: 8px 2px 0; font-size: 13px; color: var(--text); }
+.pine-settings label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.pine-settings input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; }
 .btn-primary {
   background: var(--accent); border: none; color: #fff;
   border-radius: 8px; padding: 8px 14px; font-size: 13px;
