@@ -42,8 +42,13 @@ class StocksProvider {
     }
 }
 
+const CHART_LAYOUT_KEY = '7d-chart-layout';
+let chartLayout = '1';
+try { chartLayout = localStorage.getItem(CHART_LAYOUT_KEY) || '1'; } catch { chartLayout = '1'; }
+if (chartLayout !== '1' && chartLayout !== '2h') chartLayout = '1';
+
 const ws = new VelaWorkspace('#chart', {
-    layout: false,
+    layout: chartLayout,
     symbol: 'stocks:SPY',
     timeframe: 'D',
     theme: 'dark',
@@ -51,6 +56,34 @@ const ws = new VelaWorkspace('#chart', {
     providers: { stocks: () => new StocksProvider() },
     engines: { pine: () => new PineWorkerEngine() },
     persist: true,
+    cells: {
+        main: { symbol: 'stocks:SPY', timeframe: 'D' },
+        second: { symbol: 'stocks:QQQ', timeframe: 'D' },
+    },
+    // hide the native layout picker — our Hebrew header owns the 1/2-chart toggle
+    topbar: {
+        left: ['symbol', 'timeframes', 'style', 'indicators', 'actions', 'undo-redo'],
+        right: ['actions', 'alerts', 'panels', 'screenshot'],
+    },
+});
+
+// keep our Hebrew chrome (symbol display, timeframe highlight) following the active cell
+function refreshChrome() {
+    const cell = ws.active;
+    const sym = String(cell.symbol || '').replace(/^stocks:/i, '').toUpperCase() || currentSym;
+    currentSym = sym;
+    currentSymbol.textContent = sym;
+    document.getElementById('watchlist-current').textContent = sym;
+    document.querySelectorAll('#timeframes button').forEach((b) =>
+        b.classList.toggle('active', b.dataset.tf === cell.timeframe));
+}
+ws.onCells((e) => {
+    if (e.kind === 'active') refreshChrome();
+    // a newly revealed cell boots with Israel's default scripts too
+    if (e.kind === 'created') {
+        const c = ws.cell(e.id);
+        if (c) runDefaultScripts(c.chart).then(() => applyMarkersPrefToChart(c.chart)).catch(() => {});
+    }
 });
 
 let currentSym = 'SPY';
@@ -67,8 +100,7 @@ function setSymbol(sym, name) {
     ws.active.setSymbol('stocks:' + sym);
     currentSym = sym;
     if (name) currentNames[sym] = name;
-    currentSymbol.textContent = sym;
-    document.getElementById('watchlist-current').textContent = sym;
+    refreshChrome();
     searchResults.hidden = true;
     searchInput.value = '';
 }
@@ -111,6 +143,47 @@ document.getElementById('timeframes').addEventListener('click', (e) => {
     btn.classList.add('active');
     ws.active.setTimeframe(btn.dataset.tf);
 });
+
+// 1 chart / 2 charts — native workspace grid; cells keep their own symbol,
+// timeframe and indicators. Choice persists.
+const chartCountBox = document.getElementById('chart-count');
+function paintChartCount() {
+    chartCountBox?.querySelectorAll('button').forEach((b) =>
+        b.classList.toggle('active', b.dataset.layout === chartLayout));
+}
+chartCountBox?.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-layout]');
+    if (!btn || btn.dataset.layout === chartLayout) return;
+    chartLayout = btn.dataset.layout;
+    try { localStorage.setItem(CHART_LAYOUT_KEY, chartLayout); } catch { /* noop */ }
+    paintChartCount();
+    ws.setLayout(chartLayout);
+    requestAnimationFrame(() => { try { ws.resize(); } catch { /* noop */ } });
+});
+paintChartCount();
+// enforce the saved choice (workspace persist may restore a different layout)
+try { ws.setLayout(chartLayout); } catch { /* noop */ }
+
+// symbol sync across cells (TradingView-style link)
+const SYNC_KEY = '7d-sync-symbol';
+let syncSymbol = false;
+try { syncSymbol = JSON.parse(localStorage.getItem(SYNC_KEY) ?? 'false'); } catch { syncSymbol = false; }
+const syncBtn = document.getElementById('sync-toggle');
+function paintSync() {
+    if (!syncBtn) return;
+    syncBtn.classList.toggle('on', syncSymbol);
+    syncBtn.textContent = syncSymbol ? 'סנכרון: פעיל' : 'סנכרון: כבוי';
+}
+function applySync() {
+    try { ws.sync.set('symbol', syncSymbol); } catch { /* older engine */ }
+    paintSync();
+}
+syncBtn?.addEventListener('click', () => {
+    syncSymbol = !syncSymbol;
+    try { localStorage.setItem(SYNC_KEY, JSON.stringify(syncSymbol)); } catch { /* noop */ }
+    applySync();
+});
+applySync();
 
 window.addEventListener('resize', () => ws.resize());
 
@@ -242,10 +315,18 @@ const MARKERS_INPUT_ON = 'input.bool(true, "הצג סימנים על הגרף")'
 const MARKERS_INPUT_OFF = 'input.bool(false, "הצג סימנים על הגרף")';
 let showMarkers = true;
 try { showMarkers = JSON.parse(localStorage.getItem(MARKERS_KEY) ?? 'true'); } catch { showMarkers = true; }
-function withMarkersPref(src) {
-    return showMarkers ? src : src.split(MARKERS_INPUT_ON).join(MARKERS_INPUT_OFF);
+// Instant toggle: flip the live `showMarkers` input on every script indicator.
+// No script re-run, no flicker. Indicators without the input are skipped.
+function applyMarkersPrefToChart(chart) {
+    for (const h of chart.indicators()) {
+        if (!h.source) continue;
+        try { h.setInputs({ showMarkers }); } catch { /* no such input */ }
+    }
 }
-pineCode.value = withMarkersPref(PINE_DEFAULT);
+function applyMarkersPrefToAll() {
+    for (const c of ws.cells()) { try { applyMarkersPrefToChart(c.chart); } catch { /* noop */ } }
+}
+pineCode.value = PINE_DEFAULT;
 let pineRemovers = [];
 let savedScripts = JSON.parse(localStorage.getItem(PINE_KEY) || '[]');
 function saveScripts() { localStorage.setItem(PINE_KEY, JSON.stringify(savedScripts)); }
@@ -266,9 +347,10 @@ pineRunBtn.addEventListener('click', async () => {
         for (const h of ws.chart.indicators()) {
             if (h.title === t) { try { h.remove(); } catch { /* noop */ } }
         }
-        const res = await ws.chart.runScript(withMarkersPref(pineCode.value));
+        const res = await ws.chart.runScript(pineCode.value);
         if (res.ok && typeof res.remove === 'function') {
             pineRemovers.push(res.remove);
+            applyMarkersPrefToChart(ws.chart);
         } else {
             pineError.textContent = String(res.error?.message || res.error || 'שגיאה לא ידועה');
             pineError.hidden = false;
@@ -289,34 +371,36 @@ document.getElementById('pine-clear').addEventListener('click', () => {
 
 // preset scripts: Israel's defaults
 document.getElementById('pine-preset-ma').addEventListener('click', () => {
-    pineCode.value = withMarkersPref(PINE_DEFAULT); pineError.hidden = true;
+    pineCode.value = PINE_DEFAULT; pineError.hidden = true;
 });
 document.getElementById('pine-preset-vol').addEventListener('click', () => {
-    pineCode.value = withMarkersPref(PINE_VOLUME); pineError.hidden = true;
+    pineCode.value = PINE_VOLUME; pineError.hidden = true;
 });
 document.getElementById('pine-preset-rvol').addEventListener('click', () => {
-    pineCode.value = withMarkersPref(PINE_RVOL30); pineError.hidden = true;
+    pineCode.value = PINE_RVOL30; pineError.hidden = true;
 });
 
-// auto-run Israel's defaults on the charts at load:
+// auto-run Israel's defaults on a chart:
 // - remove redundant native SMA/EMA/Volume (his Pine scripts replace them)
 // - run MA+candle script + volume script, unless already present (no duplicates)
+const DEFAULT_TITLES = ['ממוצעים ונרות', 'ווליום', 'RVOL 30%'];
 let maAutoRan = false;
-async function runDefaultScripts() {
+async function runDefaultScripts(chart = ws.chart) {
     try {
-        await ws.chart.data.ready();
+        await chart.data.ready();
         // drop stale copies of our own default scripts so the newest code always runs
-        for (const h of ws.chart.indicators()) {
-            if (h.source && (h.title === 'ממוצעים ונרות' || h.title === 'ווליום' || h.title === 'RVOL 30%')) {
+        for (const h of chart.indicators()) {
+            if (h.source && DEFAULT_TITLES.includes(h.title)) {
                 try { h.remove(); } catch { /* noop */ }
             }
         }
         for (const src of [PINE_DEFAULT, PINE_VOLUME, PINE_RVOL30]) {
             try {
-                const res = await ws.chart.runScript(withMarkersPref(src));
+                const res = await chart.runScript(src);
                 if (res && res.ok && typeof res.remove === 'function') pineRemovers.push(res.remove);
             } catch { /* leave the chart clean if the engine is not ready */ }
         }
+        applyMarkersPrefToChart(chart);
     } catch { /* leave the chart clean */ }
 }
 async function autoRunDefaults() {
@@ -333,19 +417,91 @@ async function autoRunDefaults() {
             }
         }
     } catch { /* leave the chart clean */ }
-    await runDefaultScripts();
+    await runDefaultScripts(ws.chart);
+    refreshChrome();
 }
 autoRunDefaults();
 
-// settings toggle: show/hide chart markers from the default scripts
+// settings toggle: show/hide chart markers — instant, flips the live input
 const markersChk = document.getElementById('pine-markers');
 if (markersChk) {
     markersChk.checked = showMarkers;
-    markersChk.addEventListener('change', async () => {
+    markersChk.addEventListener('change', () => {
         showMarkers = markersChk.checked;
         try { localStorage.setItem(MARKERS_KEY, JSON.stringify(showMarkers)); } catch { /* noop */ }
-        await runDefaultScripts();
+        applyMarkersPrefToAll();
     });
+}
+
+// ---- Saved indicator layouts ----
+const LAYOUTS_KEY = '7d-layouts';
+let layouts = [];
+try { layouts = JSON.parse(localStorage.getItem(LAYOUTS_KEY) || '[]'); } catch { layouts = []; }
+function saveLayouts() { try { localStorage.setItem(LAYOUTS_KEY, JSON.stringify(layouts)); } catch { /* noop */ } }
+
+function captureLayout(name) {
+    const scripts = [];
+    for (const h of ws.chart.indicators()) {
+        if (!h.source) continue;
+        // normalize the markers input back to default-on; the current pref is applied on load
+        scripts.push({ t: h.title, code: h.source.split(MARKERS_INPUT_OFF).join(MARKERS_INPUT_ON) });
+    }
+    return { name, ts: Date.now(), markers: showMarkers, scripts };
+}
+
+async function applyLayout(l) {
+    const chart = ws.chart;
+    showMarkers = l.markers !== false;
+    if (markersChk) markersChk.checked = showMarkers;
+    try { localStorage.setItem(MARKERS_KEY, JSON.stringify(showMarkers)); } catch { /* noop */ }
+    try {
+        for (const h of chart.indicators()) {
+            if (h.source) { try { h.remove(); } catch { /* noop */ } }
+        }
+        for (const s of l.scripts) {
+            try {
+                const res = await chart.runScript(s.code);
+                if (res && res.ok && typeof res.remove === 'function') pineRemovers.push(res.remove);
+            } catch { /* skip broken scripts, keep the rest */ }
+        }
+        applyMarkersPrefToChart(chart);
+    } catch { /* leave the chart clean */ }
+}
+
+function renderLayouts() {
+    const box = document.getElementById('layout-list');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!layouts.length) {
+        box.innerHTML = '<div style="color:var(--muted);font-size:12px">עוד לא נשמרו לייאאוטים. סדר את האינדיקטורים על הגרף הפעיל ולחץ "שמור נוכחי".</div>';
+        return;
+    }
+    for (const [i, l] of layouts.entries()) {
+        const d = document.createElement('div');
+        d.className = 'layout-row';
+        const t = document.createElement('button');
+        t.className = 't';
+        t.textContent = `${l.name} (${(l.scripts || []).length})`;
+        t.title = 'החל על הגרף הפעיל';
+        t.addEventListener('click', () => applyLayout(l));
+        const del = document.createElement('button');
+        del.textContent = '✕'; del.className = 'del'; del.title = 'מחק לייאאוט';
+        del.addEventListener('click', (e) => { e.stopPropagation(); layouts.splice(i, 1); saveLayouts(); renderLayouts(); });
+        d.append(t, del);
+        box.appendChild(d);
+    }
+}
+
+const layoutSaveBtn = document.getElementById('layout-save');
+if (layoutSaveBtn) {
+    layoutSaveBtn.addEventListener('click', () => {
+        const input = document.getElementById('layout-name');
+        const name = (input.value || '').trim() || `לייאאוט ${layouts.length + 1}`;
+        layouts.unshift(captureLayout(name));
+        saveLayouts(); renderLayouts();
+        input.value = '';
+    });
+    renderLayouts();
 }
 
 document.getElementById('pine-save').addEventListener('click', () => {

@@ -26,6 +26,11 @@
     <button data-tf="W">שבועי</button>
     <button data-tf="M">חודשי</button>
   </nav>
+  <div class="chart-count" id="chart-count" role="group" aria-label="מספר גרפים">
+    <button data-layout="1" class="active">גרף אחד</button>
+    <button data-layout="2h">שני גרפים</button>
+  </div>
+  <button id="sync-toggle" class="hdr-btn" title="כשפעיל — שינוי סימבול מחליף את הסימבול בכל הגרפים">סנכרון: כבוי</button>
   <button id="watchlist-toggle" class="hdr-btn">רשימת מעקב</button>
   <button id="pine-toggle" class="hdr-btn">Pine Script</button>
   <button id="scans-toggle" class="hdr-btn">סורקים</button>
@@ -58,6 +63,14 @@
     <label><input type="checkbox" id="pine-markers" checked> הצג סימנים על הגרף</label>
   </div>
   <div id="pine-error" class="pine-error" dir="ltr" hidden></div>
+  <div class="pine-saved">
+    <h3>לייאאוטים</h3>
+    <div class="layout-add">
+      <input id="layout-name" placeholder="שם הלייאאוט…" maxlength="40">
+      <button id="layout-save" class="hdr-btn">שמור נוכחי</button>
+    </div>
+    <div id="layout-list"></div>
+  </div>
   <div class="pine-saved">
     <h3>הסקריפטים שלי</h3>
     <div id="pine-saved-list"></div>
