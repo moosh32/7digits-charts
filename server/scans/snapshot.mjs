@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', '..', 'data');
 const SNAP_PATH = path.join(DATA_DIR, 'scan-snapshot.json');
 // Bump when computeFeatures gains/loses fields — forces a rebuild on next start.
-const SNAP_VERSION = 2;
+const SNAP_VERSION = 3;
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 
 const num = (s) => parseFloat(String(s).replace(/[$,]/g, ''));
@@ -395,21 +395,28 @@ export async function refreshSnapshot() {
         for (const f of results) if (f) { feats[f.s] = f; ok++; }
         // keep last-good features for symbols that failed this refresh
         for (const sym of Object.keys(prev)) if (!feats[sym]) feats[sym] = prev[sym];
-        // ETFs (separate universe — only the liquid-ETF scan uses these)
-        console.log('scan snapshot: fetching ETF universe…');
-        const etfUni = (await fetchEtfUniverse()).filter((u) => !feats[u.s]);
-        console.log(`scan snapshot: ${etfUni.length} ETFs, fetching bars…`);
-        const etfFeats = {};
-        let edone = 0;
-        const eresults = await pool(etfUni, 12, async (u) => {
-            const { bars } = await nasdaqDaily(u.s, true);
-            if (++edone % 500 === 0) console.log(`scan snapshot ETFs: ${edone}/${etfUni.length}…`);
-            if (!bars.length) return null;
-            return computeFeatures(u.s, u.n, bars, { etf: true });
-        });
-        let eok = 0;
+        // ETFs (separate universe — only the liquid-ETF scan uses these).
+        // If the ETF screener is blocked (403), keep previous ETF feats instead of
+        // failing the whole refresh — stocks must not wait on ETFs.
+        let etfFeats = {};
+        try {
+            console.log('scan snapshot: fetching ETF universe…');
+            const etfUni = (await fetchEtfUniverse()).filter((u) => !feats[u.s]);
+            console.log(`scan snapshot: ${etfUni.length} ETFs, fetching bars…`);
+            let edone = 0;
+            const eresults = await pool(etfUni, 12, async (u) => {
+                const { bars } = await nasdaqDaily(u.s, true);
+                if (++edone % 500 === 0) console.log(`scan snapshot ETFs: ${edone}/${etfUni.length}…`);
+                if (!bars.length) return null;
+                return computeFeatures(u.s, u.n, bars, { etf: true });
+            });
+            let eok = 0;
+            for (const f of eresults) if (f) { etfFeats[f.s] = f; eok++; }
+            console.log(`scan snapshot: ${eok} ETF feats fresh`);
+        } catch (e) {
+            console.error('scan snapshot: ETF universe failed, keeping previous:', e.message);
+        }
         const prevEtf = snapshot?.etfFeats || {};
-        for (const f of eresults) if (f) { etfFeats[f.s] = f; eok++; }
         for (const sym of Object.keys(prevEtf)) if (!etfFeats[sym]) etfFeats[sym] = prevEtf[sym];
         snapshot = { v: SNAP_VERSION, asOf: new Date().toISOString(), feats, etfFeats };
         save();
