@@ -701,6 +701,19 @@ const SCANNERS = [
             };
         },
     },
+    {
+        id: 'rvol-30', name: 'RVOL 30%+', groups: ['sun'],
+        desc: "נפח היום ≥ 1.3x מממוצע נפח 50 הימים (הגדרת RVOL של ג'ף סאן). עיבוד לגרף יומי: הכלל המקורי נמדד תוך-יומי — RVOL מעל 30% ב-120 הדקות הראשונות מהפתיחה (@FreedomTradesx).",
+        run(f) {
+            if (!has(f.rvol50)) return null;
+            if (!(f.rvol50 >= 1.3)) return null;
+            return {
+                pass: true,
+                detail: `RVOL ${f.rvol50.toFixed(2)}x (50j) · שינוי ${f.chg >= 0 ? '+' : ''}${f.chg.toFixed(1)}% · נזילות ${f.liqFlag ? '✓' : '✗'}${f.splitSuspect ? ' · חשד ספליט!' : ''}`,
+                sort: f.rvol50,
+            };
+        },
+    },
 ];
 
 export const GROUPS = [
@@ -709,6 +722,7 @@ export const GROUPS = [
     { id: 'setups', name: 'סטאפים' },
     { id: 'room', name: 'חדר הסורקים' },
     { id: 'builder', name: 'בילדר' },
+    { id: 'sun', name: "ג'ף סאן" },
 ];
 
 // exported for testing

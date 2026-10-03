@@ -220,6 +220,15 @@ if isHVQ
     label.new(bar_index, volume, "HVQ " + volTxt, style=label.style_none, textcolor=color.white, size=size.small)
 plot(volMa, "ממוצע 50", color.orange)
 plot(volume, "ווליום", volume < volMa ? color.gray : color.blue, style=plot.style_columns)`;
+const PINE_RVOL30 = `//@version=5
+indicator("RVOL 30%", overlay=true)
+// Jeff Sun RVOL = volume vs 50-day average; yellow candle when >= 30% above average
+rvolLen = input.int(50, "אורך ממוצע נפח", minval=1)
+rvolThr = input.float(1.3, "סף RVOL", minval=1.0, step=0.05)
+rvol = volume / ta.sma(volume, rvolLen)
+isRvol30 = rvol >= rvolThr
+barcolor(isRvol30 ? color.yellow : na)
+plotshape(isRvol30, "RVOL 30%", shape.triangleup, location.belowbar, color.yellow, size=size.tiny)`;
 const pineCode = document.getElementById('pine-code');
 const pineError = document.getElementById('pine-error');
 const pineRunBtn = document.getElementById('pine-run');
@@ -272,6 +281,9 @@ document.getElementById('pine-preset-ma').addEventListener('click', () => {
 document.getElementById('pine-preset-vol').addEventListener('click', () => {
     pineCode.value = PINE_VOLUME; pineError.hidden = true;
 });
+document.getElementById('pine-preset-rvol').addEventListener('click', () => {
+    pineCode.value = PINE_RVOL30; pineError.hidden = true;
+});
 
 // auto-run Israel's defaults on the charts at load:
 // - remove redundant native SMA/EMA/Volume (his Pine scripts replace them)
@@ -292,11 +304,11 @@ async function autoRunDefaults() {
         }
         // drop stale copies of our own default scripts so the newest code always runs
         for (const h of ws.chart.indicators()) {
-            if (h.source && (h.title === 'ממוצעים ונרות' || h.title === 'ווליום')) {
+            if (h.source && (h.title === 'ממוצעים ונרות' || h.title === 'ווליום' || h.title === 'RVOL 30%')) {
                 try { h.remove(); } catch { /* noop */ }
             }
         }
-        for (const src of [PINE_DEFAULT, PINE_VOLUME]) {
+        for (const src of [PINE_DEFAULT, PINE_VOLUME, PINE_RVOL30]) {
             try {
                 const res = await ws.chart.runScript(src);
                 if (res && res.ok && typeof res.remove === 'function') pineRemovers.push(res.remove);
