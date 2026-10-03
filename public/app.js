@@ -227,27 +227,115 @@ document.querySelectorAll('.drawer-close').forEach((b) =>
         document.querySelectorAll('.hdr-btn.open').forEach((x) => x.classList.remove('open'));
     }));
 
-// ---- Watchlist ----
+// ---- Watchlist (Phase 1: flags, filters, sorting, batch quotes) ----
 const WL_KEY = '7d-watchlist';
+const WL_UI_KEY = '7d-watchlist-ui';
+const FLAG_COLORS = {
+    red: '#ef5350', orange: '#ff9800', yellow: '#ffee58',
+    green: '#26a69a', blue: '#4d7cfe',
+};
+const FLAG_NAMES = { red: 'אדום', orange: 'כתום', yellow: 'צהוב', green: 'ירוק', blue: 'כחול' };
 let watchlist = JSON.parse(localStorage.getItem(WL_KEY) || 'null') || [
     { s: 'SPY', n: 'S&P 500 ETF' }, { s: 'QQQ', n: 'Nasdaq 100 ETF' },
     { s: 'NVDA', n: 'NVIDIA Corporation' }, { s: 'AAPL', n: 'Apple Inc' },
     { s: 'TSLA', n: 'Tesla Inc' }, { s: 'MSFT', n: 'Microsoft' },
 ];
-function saveWatchlist() { localStorage.setItem(WL_KEY, JSON.stringify(watchlist)); }
+// silent migration: old records without a flag get flag: null
+let wlMigrated = false;
+for (const it of watchlist) {
+    if (!('flag' in it)) { it.flag = null; wlMigrated = true; }
+}
+function saveWatchlist() {
+    try { localStorage.setItem(WL_KEY, JSON.stringify(watchlist)); } catch { /* noop */ }
+}
+if (wlMigrated) saveWatchlist();
 
-async function renderWatchlist() {
+let wlUI = { filter: null, sort: 'symbol' };
+try { wlUI = Object.assign(wlUI, JSON.parse(localStorage.getItem(WL_UI_KEY) || '{}')); } catch { /* noop */ }
+function saveWlUI() { try { localStorage.setItem(WL_UI_KEY, JSON.stringify(wlUI)); } catch { /* noop */ } }
+let wlQuotes = {}; // symbol -> {price, changePct}, filled by the batch fetch
+
+function wlVisibleItems() {
+    let items = watchlist.slice();
+    if (wlUI.filter) items = items.filter((it) => it.flag === wlUI.filter);
+    if (wlUI.sort === 'change-desc' || wlUI.sort === 'change-asc') {
+        const dir = wlUI.sort === 'change-desc' ? -1 : 1;
+        items.sort((a, b) => {
+            const qa = wlQuotes[a.s]?.changePct, qb = wlQuotes[b.s]?.changePct;
+            if (qa == null && qb == null) return a.s.localeCompare(b.s);
+            if (qa == null) return 1;
+            if (qb == null) return -1;
+            return (qa - qb) * dir || a.s.localeCompare(b.s);
+        });
+    } else {
+        items.sort((a, b) => a.s.localeCompare(b.s));
+    }
+    return items;
+}
+
+function renderWlTools() {
+    const box = document.getElementById('wl-filters');
+    if (!box) return;
+    box.innerHTML = '';
+    const mk = (key, label, color) => {
+        const b = document.createElement('button');
+        b.className = 'wl-chip' + (wlUI.filter === key ? ' active' : '');
+        if (color) {
+            const d = document.createElement('span');
+            d.className = 'dot'; d.style.background = color;
+            b.appendChild(d);
+        }
+        const t = document.createElement('span'); t.textContent = label;
+        b.appendChild(t);
+        b.addEventListener('click', () => { wlUI.filter = key; saveWlUI(); renderWatchlist(); });
+        return b;
+    };
+    box.appendChild(mk(null, 'הכל'));
+    for (const [key, color] of Object.entries(FLAG_COLORS)) {
+        box.appendChild(mk(key, FLAG_NAMES[key], color));
+    }
+    const sortBtn = document.getElementById('wl-sort');
+    if (sortBtn) {
+        sortBtn.textContent = wlUI.sort === 'symbol' ? 'מיון: סימבול'
+            : wlUI.sort === 'change-desc' ? 'מיון: שינוי ↓' : 'מיון: שינוי ↑';
+    }
+}
+
+function renderWatchlist() {
+    renderWlTools();
     const box = document.getElementById('watchlist-items');
     box.innerHTML = '';
-    for (const it of watchlist) {
+    const items = wlVisibleItems();
+    if (!items.length) {
+        box.innerHTML = `<div style="color:var(--muted);font-size:13px">${
+            watchlist.length ? 'אין מניות בתצוגה זו.' : 'ריק — הוסף מניות מהכפתור למעלה.'}</div>`;
+    }
+    for (const it of items) {
         const b = document.createElement('button');
         b.className = 'wl-item';
-        b.innerHTML = `<span class="sym"></span><span class="nm"></span><span class="q">…</span><span class="rm" title="הסר">✕</span>`;
+        b.innerHTML = `<span class="flag"></span><span class="sym"></span><span class="nm"></span><span class="q">…</span><span class="rm" title="הסר">✕</span>`;
+        const flagEl = b.querySelector('.flag');
+        const paintFlag = () => {
+            flagEl.style.background = it.flag ? FLAG_COLORS[it.flag] : 'transparent';
+            flagEl.classList.toggle('empty', !it.flag);
+            flagEl.title = it.flag ? `דגל ${FLAG_NAMES[it.flag]} (לחץ לשינוי)` : 'ללא דגל (לחץ לבחירה)';
+        };
+        paintFlag();
         b.querySelector('.sym').textContent = it.s;
         b.querySelector('.nm').textContent = it.n || '';
         const qEl = b.querySelector('.q');
+        const paintQuote = () => {
+            const q = wlQuotes[it.s];
+            if (q && q.price != null) {
+                const cls = q.changePct >= 0 ? 'chg-up' : 'chg-dn';
+                const sign = q.changePct >= 0 ? '+' : '';
+                qEl.innerHTML = `${q.price} <span class="${cls}">${sign}${q.changePct}%</span>`;
+            }
+        };
+        paintQuote();
+        b._paintQuote = paintQuote;
         b.addEventListener('click', (e) => {
-            if (e.target.closest('.rm')) return;
+            if (e.target.closest('.rm') || e.target.closest('.flag')) return;
             setSymbol(it.s, it.n);
         });
         b.querySelector('.rm').addEventListener('click', (e) => {
@@ -255,22 +343,81 @@ async function renderWatchlist() {
             watchlist = watchlist.filter((x) => x.s !== it.s);
             saveWatchlist(); renderWatchlist();
         });
+        const openMenu = (x, y) => openWlMenu(it, x, y, paintFlag);
+        flagEl.addEventListener('click', (e) => { e.stopPropagation(); openMenu(e.clientX, e.clientY); });
+        b.addEventListener('contextmenu', (e) => { e.preventDefault(); openMenu(e.clientX, e.clientY); });
         box.appendChild(b);
-        try {
-            const r = await fetch(`/api/quote?symbol=${encodeURIComponent(it.s)}`);
-            const q = await r.json();
-            if (q.price) {
-                const cls = q.changePct >= 0 ? 'chg-up' : 'chg-dn';
-                const sign = q.changePct >= 0 ? '+' : '';
-                qEl.innerHTML = `${q.price} <span class="${cls}">${sign}${q.changePct}%</span>`;
-            } else qEl.textContent = '';
-        } catch { qEl.textContent = ''; }
     }
-    if (!watchlist.length) box.innerHTML = '<div style="color:var(--muted);font-size:13px">ריק — הוסף מניות מהכפתור למעלה.</div>';
+    refreshWlQuotes();
 }
+
+// one batch request for all symbols instead of one request per row
+let wlQuotesSeq = 0;
+async function refreshWlQuotes() {
+    if (!watchlist.length) return;
+    const seq = ++wlQuotesSeq;
+    try {
+        const r = await fetch(`/api/quotes?symbols=${encodeURIComponent(watchlist.map((x) => x.s).join(','))}`);
+        if (!r.ok) return;
+        const data = await r.json();
+        if (seq !== wlQuotesSeq) return; // a newer refresh won
+        const before = wlUI.sort === 'symbol' ? null : wlVisibleItems().map((i) => i.s).join(',');
+        wlQuotes = data;
+        for (const row of document.querySelectorAll('#watchlist-items .wl-item')) {
+            if (typeof row._paintQuote === 'function') row._paintQuote();
+        }
+        // re-sort once if the fresh quotes changed the order (then it settles)
+        if (before !== null && wlVisibleItems().map((i) => i.s).join(',') !== before) renderWatchlist();
+    } catch { /* keep previous quotes */ }
+}
+
+// right-click (or flag-click) color menu
+function openWlMenu(it, x, y, onChange) {
+    closeWlMenu();
+    const m = document.getElementById('wl-ctx');
+    m.innerHTML = '';
+    for (const [key, color] of Object.entries(FLAG_COLORS)) {
+        const b = document.createElement('button');
+        const d = document.createElement('span');
+        d.className = 'dot'; d.style.background = color;
+        const t = document.createElement('span'); t.textContent = FLAG_NAMES[key];
+        b.append(d, t);
+        if (it.flag === key) b.classList.add('active');
+        b.addEventListener('click', () => {
+            it.flag = key; saveWatchlist(); onChange(); closeWlMenu();
+            if (wlUI.filter) renderWatchlist();
+        });
+        m.appendChild(b);
+    }
+    const clear = document.createElement('button');
+    clear.className = 'clear';
+    clear.textContent = 'נקה דגל';
+    clear.addEventListener('click', () => {
+        it.flag = null; saveWatchlist(); onChange(); closeWlMenu();
+        if (wlUI.filter) renderWatchlist();
+    });
+    m.appendChild(clear);
+    m.hidden = false;
+    const mw = 150, mh = m.children.length * 34 + 8;
+    m.style.left = Math.max(8, Math.min(x, window.innerWidth - mw - 8)) + 'px';
+    m.style.top = Math.max(8, Math.min(y, window.innerHeight - mh - 8)) + 'px';
+}
+function closeWlMenu() {
+    const m = document.getElementById('wl-ctx');
+    if (m) m.hidden = true;
+}
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('#wl-ctx')) closeWlMenu();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeWlMenu(); });
+
+document.getElementById('wl-sort')?.addEventListener('click', () => {
+    wlUI.sort = wlUI.sort === 'symbol' ? 'change-desc' : wlUI.sort === 'change-desc' ? 'change-asc' : 'symbol';
+    saveWlUI(); renderWatchlist();
+});
 document.getElementById('watchlist-add').addEventListener('click', () => {
     if (!watchlist.some((x) => x.s === currentSym)) {
-        watchlist.unshift({ s: currentSym, n: currentNames[currentSym] || '' });
+        watchlist.unshift({ s: currentSym, n: currentNames[currentSym] || '', flag: null });
         saveWatchlist(); renderWatchlist();
     }
 });

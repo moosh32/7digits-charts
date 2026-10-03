@@ -239,6 +239,36 @@ app.get('/api/quote', async (req, res) => {
 
 app.get('/api/scans', (req, res) => res.json(listScanners()));
 
+// batch quotes for the watchlist: one request instead of one per symbol
+app.get('/api/quotes', async (req, res) => {
+    try {
+        const symbols = String(req.query.symbols || '').toUpperCase().split(',')
+            .map((s) => s.replace(/[^A-Z0-9.\-^=]/g, '').slice(0, 12))
+            .filter(Boolean).slice(0, 100);
+        const out = {};
+        await Promise.all(symbols.map(async (symbol) => {
+            try {
+                const ck = `quote:${symbol}`;
+                const hit = cacheGet(ck);
+                if (hit) { out[symbol] = hit; return; }
+                const bars = await nasdaqDaily(symbol);
+                if (bars.length < 2) return;
+                const last = bars[bars.length - 1], prev = bars[bars.length - 2];
+                const q = {
+                    symbol,
+                    price: +last.close.toFixed(2),
+                    changePct: prev.close ? +(((last.close - prev.close) / prev.close * 100).toFixed(2)) : 0,
+                };
+                cacheSet(ck, q, 60 * 1000);
+                out[symbol] = q;
+            } catch { /* skip failed symbols */ }
+        }));
+        res.json(out);
+    } catch (e) {
+        res.status(502).json({ error: 'quotes unavailable' });
+    }
+});
+
 app.get('/api/scan/:id', (req, res) => {
     const out = runScanner(req.params.id);
     if (!out) return res.status(404).json({ error: 'unknown scanner' });

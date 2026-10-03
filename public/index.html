@@ -39,8 +39,13 @@
 <aside id="watchlist-panel" class="drawer" hidden>
   <div class="drawer-head"><h2>רשימת מעקב</h2><button class="drawer-close" data-close="watchlist-panel">✕</button></div>
   <button id="watchlist-add" class="drawer-action">＋ הוסף את <span id="watchlist-current" dir="ltr">SPY</span></button>
+  <div class="wl-tools">
+    <div class="wl-filters" id="wl-filters"></div>
+    <button id="wl-sort" class="hdr-btn wl-sort-btn">מיון: סימבול</button>
+  </div>
   <div id="watchlist-items" class="watchlist-items"></div>
 </aside>
+<div class="wl-ctx" id="wl-ctx" hidden></div>
 <aside id="scans-panel" class="drawer drawer-wide" hidden>
   <div class="drawer-head"><h2>סורקים</h2><button class="drawer-close" data-close="scans-panel">✕</button></div>
   <div id="scan-groups" class="scan-groups"></div>
