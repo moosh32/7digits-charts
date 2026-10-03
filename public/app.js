@@ -313,6 +313,7 @@ function renderWatchlist() {
     for (const it of items) {
         const b = document.createElement('button');
         b.className = 'wl-item';
+        b.dataset.sym = it.s;
         b.innerHTML = `<span class="flag"></span><span class="sym"></span><span class="nm"></span><span class="q">…</span><span class="rm" title="הסר">✕</span>`;
         const flagEl = b.querySelector('.flag');
         const paintFlag = () => {
@@ -334,22 +335,35 @@ function renderWatchlist() {
         };
         paintQuote();
         b._paintQuote = paintQuote;
-        b.addEventListener('click', (e) => {
-            if (e.target.closest('.rm') || e.target.closest('.flag')) return;
-            setSymbol(it.s, it.n);
-        });
-        b.querySelector('.rm').addEventListener('click', (e) => {
-            e.stopPropagation();
-            watchlist = watchlist.filter((x) => x.s !== it.s);
-            saveWatchlist(); renderWatchlist();
-        });
-        const openMenu = (x, y) => openWlMenu(it, x, y, paintFlag);
-        flagEl.addEventListener('click', (e) => { e.stopPropagation(); openMenu(e.clientX, e.clientY); });
-        b.addEventListener('contextmenu', (e) => { e.preventDefault(); openMenu(e.clientX, e.clientY); });
+        b._paintFlag = paintFlag;
+        b._item = it;
         box.appendChild(b);
     }
     refreshWlQuotes();
 }
+
+// single delegated listener for the whole list: remove / flag menu / click-to-chart
+document.getElementById('watchlist-items').addEventListener('click', (e) => {
+    const row = e.target.closest('.wl-item');
+    if (!row || !row._item) return;
+    const it = row._item;
+    if (e.target.closest('.rm')) {
+        watchlist = watchlist.filter((x) => x.s !== it.s);
+        saveWatchlist(); renderWatchlist();
+        return;
+    }
+    if (e.target.closest('.flag')) {
+        openWlMenu(it, e.clientX, e.clientY, row._paintFlag);
+        return;
+    }
+    setSymbol(it.s, it.n);
+});
+document.getElementById('watchlist-items').addEventListener('contextmenu', (e) => {
+    const row = e.target.closest('.wl-item');
+    if (!row || !row._item) return;
+    e.preventDefault();
+    openWlMenu(row._item, e.clientX, e.clientY, row._paintFlag);
+});
 
 // one batch request for all symbols instead of one request per row
 let wlQuotesSeq = 0;
