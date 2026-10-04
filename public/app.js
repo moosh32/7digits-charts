@@ -268,6 +268,13 @@ let wlPushTimer = null;
 function wlServerDoc() {
     return { items: watchlist, sort: wlUI.sort, filter: wlUI.filter || 'all' };
 }
+// factory-default symbols; a server doc holding exactly these unflagged
+// is treated as pristine so the first real device pushes its state up
+const WL_FACTORY = ['SPY', 'QQQ', 'NVDA', 'AAPL', 'TSLA', 'MSFT'];
+function wlIsFactory(items) {
+    return Array.isArray(items) && items.length === WL_FACTORY.length &&
+        WL_FACTORY.every((s, i) => items[i] && items[i].s === s && !items[i].flag);
+}
 async function wlApi(method, body) {
     const r = await fetch('/api/watchlist', {
         method,
@@ -331,7 +338,9 @@ async function initWlSync() {
         const doc = await wlApi('GET');
         renderWlSync();
         if (!doc) return;
-        const pristine = !doc.updatedAt;
+        // pristine = never written, or still holding untouched factory defaults
+        // (e.g. after an ops reset) -> first sync pushes the local state up
+        const pristine = !doc.updatedAt || wlIsFactory(doc.items);
         if (pristine && watchlist.length > 0) {
             await wlApi('PUT', wlServerDoc()); // first sync: push local state up
         } else if (!pristine) {
