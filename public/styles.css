@@ -205,6 +205,25 @@ body {
 .wl-sync button { background: var(--accent-soft); border: 1px solid var(--accent); color: #fff; border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
 .wl-sync .wl-synced { color: var(--green, #26a69a); }
 .wl-sync .wl-link { background: none; border: none; color: var(--muted); text-decoration: underline; padding: 2px 4px; font-size: 11px; }
+/* market breadth drawer */
+.br-tools { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.br-exch { display: flex; gap: 6px; }
+.br-exbtn { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 20px; padding: 5px 14px; font-size: 12px; cursor: pointer; }
+.br-exbtn.active { color: #fff; background: var(--accent-soft); border-color: var(--accent); }
+.br-updated { font-size: 11px; color: var(--muted); }
+.br-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+.br-stat { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 6px; text-align: center; }
+.br-stat-l { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.br-stat-v { font-size: 16px; font-weight: 600; }
+.br-chart { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px; margin-bottom: 10px; }
+.br-svg { width: 100%; height: auto; display: block; }
+.br-tick { fill: var(--muted); font-size: 10px; }
+.br-num { font-variant-numeric: tabular-nums; }
+.br-grid { stroke: var(--border); stroke-width: 1; opacity: 0.5; }
+.br-zero { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; }
+.br-last { font-size: 13px; font-weight: 700; }
+.br-loading { color: var(--muted); font-size: 13px; text-align: center; padding: 40px 0; }
+.br-note { font-size: 11px; color: var(--muted); line-height: 1.6; }
 .wl-ctx {
   position: fixed; z-index: 9999; min-width: 140px;
   background: #141a26; border: 1px solid var(--border); border-radius: 10px;

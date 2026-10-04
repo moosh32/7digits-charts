@@ -206,7 +206,7 @@ applySync();
 window.addEventListener('resize', () => ws.resize());
 
 // ---- Drawers ----
-const drawers = { 'watchlist-toggle': 'watchlist-panel', 'pine-toggle': 'pine-panel', 'scans-toggle': 'scans-panel' };
+const drawers = { 'watchlist-toggle': 'watchlist-panel', 'pine-toggle': 'pine-panel', 'scans-toggle': 'scans-panel', 'breadth-toggle': 'breadth-panel' };
 for (const [btnId, panelId] of Object.entries(drawers)) {
     const btn = document.getElementById(btnId);
     const panel = document.getElementById(panelId);
@@ -219,12 +219,98 @@ for (const [btnId, panelId] of Object.entries(drawers)) {
         if (willOpen && panelId === 'watchlist-panel') renderWatchlist();
         if (willOpen && panelId === 'pine-panel') renderSavedScripts();
         if (willOpen && panelId === 'scans-panel') initScanners();
+        if (willOpen && panelId === 'breadth-panel') renderBreadth();
     });
 }
 document.querySelectorAll('.drawer-close').forEach((b) =>
     b.addEventListener('click', () => {
         document.getElementById(b.dataset.close).hidden = true;
         document.querySelectorAll('.hdr-btn.open').forEach((x) => x.classList.remove('open'));
+    }));
+
+// ---- Market breadth: cumulative A/D line ----
+let brExchange = 'nasdaq';
+const brCache = {};
+const brFmt = (n) => (n < 0 ? '−' : '') + Math.abs(Math.round(n)).toLocaleString('en-US');
+async function fetchBreadth(ex) {
+    if (brCache[ex]) return brCache[ex];
+    try {
+        const r = await fetch(`/api/breadth?exchange=${ex}`);
+        if (!r.ok) return null;
+        const d = await r.json();
+        brCache[ex] = d.records || [];
+        return brCache[ex];
+    } catch { return null; }
+}
+function renderBreadth() {
+    const chartBox = document.getElementById('br-chart');
+    chartBox.innerHTML = '<div class="br-loading">טוען נתוני רוחב…</div>';
+    document.getElementById('br-stats').innerHTML = '';
+    document.getElementById('br-updated').textContent = '';
+    fetchBreadth(brExchange).then((records) => {
+        if (!records || !records.length) {
+            chartBox.innerHTML = '<div class="br-loading">אין נתוני רוחב עדיין.</div>';
+            return;
+        }
+        let acc = 0;
+        const cum = records.map((r) => { acc += r.net; return { d: r.d, v: acc, net: r.net, adv: r.adv, dec: r.dec }; });
+        paintBrChart(cum);
+        paintBrStats(cum);
+        document.getElementById('br-updated').textContent = 'עודכן: ' + records[records.length - 1].d;
+    });
+}
+function paintBrStats(cum) {
+    const last = cum[cum.length - 1];
+    const prev = cum[cum.length - 2];
+    const dchg = prev ? last.v - prev.v : 0;
+    const cls = dchg >= 0 ? 'chg-up' : 'chg-dn';
+    const sign = dchg >= 0 ? '+' : '−';
+    const stat = (label, val, vcls) =>
+        `<div class="br-stat"><div class="br-stat-l">${label}</div><div class="br-stat-v ${vcls || ''}">${val}</div></div>`;
+    document.getElementById('br-stats').innerHTML =
+        stat('עולות', brFmt(last.adv), 'chg-up') +
+        stat('יורדות', brFmt(last.dec), 'chg-dn') +
+        stat('נטו יומי', brFmt(last.net), last.net >= 0 ? 'chg-up' : 'chg-dn') +
+        stat('קו מצטבר', `${brFmt(last.v)} <span class="${cls}" style="font-size:12px">${sign}${brFmt(dchg)}</span>`);
+}
+function paintBrChart(cum) {
+    const W = 640, H = 280, P = { t: 18, r: 14, b: 26, l: 64 };
+    const vs = cum.map((p) => p.v);
+    let mn = Math.min(...vs), mx = Math.max(...vs);
+    if (mn === mx) { mn -= 1; mx += 1; }
+    const X = (i) => P.l + (i / (cum.length - 1)) * (W - P.l - P.r);
+    const Y = (v) => P.t + (1 - (v - mn) / (mx - mn)) * (H - P.t - P.b);
+    const line = cum.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ');
+    const area = `${line} L${X(cum.length - 1).toFixed(1)},${Y(mn).toFixed(1)} L${X(0).toFixed(1)},${Y(mn).toFixed(1)} Z`;
+    const up = cum[cum.length - 1].v >= cum[0].v;
+    const color = up ? '#26a69a' : '#ef5350';
+    const last = cum[cum.length - 1];
+    const xTick = (i) => {
+        const p = cum[i];
+        return `<text x="${X(i)}" y="${H - 8}" class="br-tick">${p.d.slice(5)}</text>`;
+    };
+    document.getElementById('br-chart').innerHTML =
+        `<svg viewBox="0 0 ${W} ${H}" class="br-svg" preserveAspectRatio="xMidYMid meet">` +
+        `<defs><linearGradient id="brg" x1="0" y1="0" x2="0" y2="1">` +
+        `<stop offset="0" stop-color="${color}" stop-opacity="0.25"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>` +
+        `<text x="${P.l - 8}" y="${Y(mx) + 4}" class="br-tick br-num" text-anchor="end">${brFmt(mx)}</text>` +
+        `<text x="${P.l - 8}" y="${Y(mn) + 4}" class="br-tick br-num" text-anchor="end">${brFmt(mn)}</text>` +
+        `<line x1="${P.l}" y1="${Y(mx)}" x2="${W - P.r}" y2="${Y(mx)}" class="br-grid"/>` +
+        `<line x1="${P.l}" y1="${Y(mn)}" x2="${W - P.r}" y2="${Y(mn)}" class="br-grid"/>` +
+        (mn < 0 && mx > 0 ? `<line x1="${P.l}" y1="${Y(0)}" x2="${W - P.r}" y2="${Y(0)}" class="br-zero"/>` : '') +
+        `<path d="${area}" fill="url(#brg)"/>` +
+        `<path d="${line}" fill="none" stroke="${color}" stroke-width="2"/>` +
+        `<circle cx="${X(cum.length - 1)}" cy="${Y(last.v)}" r="4" fill="${color}"/>` +
+        `<text x="${Math.min(X(cum.length - 1) - 8, W - P.r - 90)}" y="${Y(last.v) - 10}" class="br-last" fill="${color}">${brFmt(last.v)}</text>` +
+        xTick(0) + xTick(Math.floor(cum.length / 2)) + xTick(cum.length - 1) +
+        `</svg>`;
+}
+document.querySelectorAll('.br-exbtn').forEach((b) =>
+    b.addEventListener('click', () => {
+        document.querySelectorAll('.br-exbtn').forEach((x) => x.classList.remove('active'));
+        b.classList.add('active');
+        brExchange = b.dataset.ex;
+        renderBreadth();
     }));
 
 // ---- Watchlist (Phase 1: flags, filters, sorting, batch quotes) ----

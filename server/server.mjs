@@ -337,6 +337,60 @@ app.put('/api/watchlist', wlAuth, (req, res) => {
     res.json({ ok: true, updatedAt: doc.updatedAt });
 });
 
+// ---------- Market breadth store ----------
+// Daily advance/decline records per exchange, fed by an external daily pull
+// service (see BREADTH-FEED.md). Served to the breadth drawer as-is;
+// the client computes the cumulative A/D line.
+const BR_SECRET = process.env.BREADTH_SECRET || '';
+const BR_FILE = path.join(WL_DIR, 'breadth.json');
+function brRead() {
+    try {
+        const d = JSON.parse(fs.readFileSync(BR_FILE, 'utf8'));
+        if (!Array.isArray(d.records)) return { records: [] };
+        return { records: d.records };
+    } catch { return { records: [] }; }
+}
+function brWrite(records) {
+    fs.mkdirSync(WL_DIR, { recursive: true });
+    const tmp = BR_FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify({ records }));
+    fs.renameSync(tmp, BR_FILE);
+}
+const brAuth = (req, res, next) => {
+    if (!BR_SECRET) return res.status(503).json({ error: 'breadth feed not configured' });
+    const t = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    if (!t || t !== BR_SECRET) return res.status(401).json({ error: 'unauthorized' });
+    next();
+};
+// Bulk upsert: {records:[{d:'YYYY-MM-DD', exchange:'nasdaq'|'nyse', adv, dec, net}]}
+app.post('/api/breadth', brAuth, (req, res) => {
+    const recs = (req.body && req.body.records) || [];
+    if (!Array.isArray(recs) || recs.length > 2000) {
+        return res.status(400).json({ error: 'bad records' });
+    }
+    const clean = [];
+    for (const r of recs) {
+        if (!r || typeof r.d !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.d)) continue;
+        if (r.exchange !== 'nasdaq' && r.exchange !== 'nyse') continue;
+        const adv = Number(r.adv), dec = Number(r.dec);
+        if (!Number.isFinite(adv) || !Number.isFinite(dec)) continue;
+        const net = Number.isFinite(Number(r.net)) ? Number(r.net) : adv - dec;
+        clean.push({ d: r.d, exchange: r.exchange, adv, dec, net });
+    }
+    if (!clean.length) return res.status(400).json({ error: 'no valid records' });
+    const map = new Map(brRead().records.map((r) => [`${r.exchange}|${r.d}`, r]));
+    for (const r of clean) map.set(`${r.exchange}|${r.d}`, r);
+    const records = [...map.values()].sort((a, b) =>
+        a.exchange === b.exchange ? (a.d < b.d ? -1 : 1) : (a.exchange < b.exchange ? -1 : 1));
+    try { brWrite(records); } catch { return res.status(500).json({ error: 'write failed' }); }
+    res.json({ ok: true, upserted: clean.length, total: records.length });
+});
+app.get('/api/breadth', (req, res) => {
+    const ex = req.query.exchange === 'nyse' ? 'nyse' : 'nasdaq';
+    const records = brRead().records.filter((r) => r.exchange === ex);
+    res.json({ exchange: ex, records });
+});
+
 startScanEngine();
 
 app.use(express.static(path.join(__dirname, '..', 'dist')));
