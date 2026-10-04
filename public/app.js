@@ -247,12 +247,112 @@ for (const it of watchlist) {
 }
 function saveWatchlist() {
     try { localStorage.setItem(WL_KEY, JSON.stringify(watchlist)); } catch { /* noop */ }
+    wlSchedulePush();
 }
 if (wlMigrated) saveWatchlist();
 
 let wlUI = { filter: null, sort: 'symbol' };
 try { wlUI = Object.assign(wlUI, JSON.parse(localStorage.getItem(WL_UI_KEY) || '{}')); } catch { /* noop */ }
-function saveWlUI() { try { localStorage.setItem(WL_UI_KEY, JSON.stringify(wlUI)); } catch { /* noop */ } }
+function saveWlUI() {
+    try { localStorage.setItem(WL_UI_KEY, JSON.stringify(wlUI)); } catch { /* noop */ }
+    wlSchedulePush();
+}
+
+// ---- Watchlist server sync (flags + sort/filter across devices) ----
+const WL_TOKEN_KEY = '7d-wl-token';
+let wlToken = '';
+try { wlToken = localStorage.getItem(WL_TOKEN_KEY) || ''; } catch { /* noop */ }
+let wlServerMode = 'unknown'; // 'on' | 'noauth' | 'off'
+let wlPushTimer = null;
+
+function wlServerDoc() {
+    return { items: watchlist, sort: wlUI.sort, filter: wlUI.filter || 'all' };
+}
+async function wlApi(method, body) {
+    const r = await fetch('/api/watchlist', {
+        method,
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + wlToken },
+        body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    if (r.status === 401) {
+        wlServerMode = 'noauth'; wlToken = '';
+        try { localStorage.removeItem(WL_TOKEN_KEY); } catch { /* noop */ }
+        renderWlSync();
+        return null;
+    }
+    if (r.status === 503) { wlServerMode = 'off'; renderWlSync(); return null; }
+    if (!r.ok) return null;
+    wlServerMode = 'on';
+    return r.json();
+}
+function wlSchedulePush() {
+    if (wlServerMode !== 'on') return;
+    clearTimeout(wlPushTimer);
+    wlPushTimer = setTimeout(() => { wlApi('PUT', wlServerDoc()); }, 800);
+}
+// flush a pending push when the tab hides so a quick close doesn't lose it
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && wlServerMode === 'on') {
+        clearTimeout(wlPushTimer);
+        wlApi('PUT', wlServerDoc());
+    }
+});
+function renderWlSync() {
+    const box = document.getElementById('wl-sync');
+    if (!box) return;
+    if (wlServerMode === 'on') {
+        box.hidden = false;
+        box.innerHTML = `<span class="wl-synced">מסונכרן ✓</span> <button id="wl-unlink" class="wl-link">נתק</button>`;
+        document.getElementById('wl-unlink').addEventListener('click', () => {
+            wlToken = ''; wlServerMode = 'noauth';
+            try { localStorage.removeItem(WL_TOKEN_KEY); } catch { /* noop */ }
+            renderWlSync();
+        });
+    } else if (wlServerMode === 'noauth') {
+        box.hidden = false;
+        box.innerHTML = `<span>סנכרון בין מכשירים:</span>` +
+            `<input id="wl-code" dir="ltr" placeholder="קוד סנכרון" autocomplete="off">` +
+            `<button id="wl-connect">חבר</button>`;
+        const go = async () => {
+            const inp = document.getElementById('wl-code');
+            wlToken = (inp.value || '').trim();
+            if (!wlToken) return;
+            try { localStorage.setItem(WL_TOKEN_KEY, wlToken); } catch { /* noop */ }
+            await initWlSync();
+        };
+        document.getElementById('wl-connect').addEventListener('click', go);
+        document.getElementById('wl-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+    } else {
+        box.hidden = true;
+    }
+}
+async function initWlSync() {
+    if (wlToken) {
+        const doc = await wlApi('GET');
+        renderWlSync();
+        if (!doc) return;
+        const pristine = !doc.updatedAt;
+        if (pristine && watchlist.length > 0) {
+            await wlApi('PUT', wlServerDoc()); // first sync: push local state up
+        } else if (!pristine) {
+            watchlist = Array.isArray(doc.items) ? doc.items : [];
+            wlUI.sort = doc.sort || 'symbol';
+            wlUI.filter = doc.filter && doc.filter !== 'all' ? doc.filter : null;
+            try {
+                localStorage.setItem(WL_KEY, JSON.stringify(watchlist));
+                localStorage.setItem(WL_UI_KEY, JSON.stringify(wlUI));
+            } catch { /* noop */ }
+            renderWatchlist();
+        }
+        renderWlSync();
+    } else {
+        try {
+            const r = await fetch('/api/watchlist');
+            wlServerMode = r.status === 401 ? 'noauth' : 'off';
+        } catch { wlServerMode = 'off'; }
+        renderWlSync();
+    }
+}
 let wlQuotes = {}; // symbol -> {price, changePct}, filled by the batch fetch
 
 function wlVisibleItems() {
@@ -435,6 +535,7 @@ document.getElementById('watchlist-add').addEventListener('click', () => {
         saveWatchlist(); renderWatchlist();
     }
 });
+initWlSync();
 
 // ---- Pine Script editor ----
 const PINE_KEY = '7d-pine-scripts';

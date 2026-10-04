@@ -276,6 +276,67 @@ app.get('/api/scan/:id', (req, res) => {
     res.json(out);
 });
 
+// ---------- Watchlist server sync (flags + sort/filter prefs) ----------
+// Small single-user store: JSON file on a mounted volume (WL_DATA_DIR).
+// Auth: Bearer token must equal WATCHLIST_SECRET. If the secret is not set,
+// the endpoints answer 503 and clients stay in localStorage-only mode.
+app.use(express.json({ limit: '64kb' }));
+const WL_SECRET = process.env.WATCHLIST_SECRET || '';
+const WL_DIR = process.env.WL_DATA_DIR || '/data';
+const WL_FILE = path.join(WL_DIR, 'watchlist.json');
+const WL_DEFAULTS = [
+    { s: 'SPY', n: 'S&P 500 ETF', flag: null },
+    { s: 'QQQ', n: 'Nasdaq 100 ETF', flag: null },
+    { s: 'NVDA', n: 'NVIDIA Corporation', flag: null },
+    { s: 'AAPL', n: 'Apple Inc', flag: null },
+    { s: 'TSLA', n: 'Tesla Inc', flag: null },
+    { s: 'MSFT', n: 'Microsoft Corporation', flag: null },
+];
+function wlDocDefault() {
+    return { items: WL_DEFAULTS.map((x) => ({ ...x })), sort: 'symbol', filter: 'all', updatedAt: 0 };
+}
+function wlRead() {
+    try {
+        const d = JSON.parse(fs.readFileSync(WL_FILE, 'utf8'));
+        if (!Array.isArray(d.items)) return wlDocDefault();
+        return {
+            items: d.items,
+            sort: d.sort || 'symbol',
+            filter: d.filter || 'all',
+            updatedAt: d.updatedAt || 0,
+        };
+    } catch { return wlDocDefault(); }
+}
+function wlWrite(doc) {
+    fs.mkdirSync(WL_DIR, { recursive: true });
+    const tmp = WL_FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(doc));
+    fs.renameSync(tmp, WL_FILE);
+}
+const wlAuth = (req, res, next) => {
+    if (!WL_SECRET) return res.status(503).json({ error: 'watchlist sync not configured' });
+    const t = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    if (!t || t !== WL_SECRET) return res.status(401).json({ error: 'unauthorized' });
+    next();
+};
+app.get('/api/watchlist', wlAuth, (req, res) => res.json(wlRead()));
+app.put('/api/watchlist', wlAuth, (req, res) => {
+    const b = req.body || {};
+    if (!Array.isArray(b.items) || b.items.length > 500) {
+        return res.status(400).json({ error: 'bad items' });
+    }
+    const items = b.items.slice(0, 500).map((x) => ({
+        s: String(x.s || '').toUpperCase().slice(0, 12),
+        n: String(x.n || '').slice(0, 80),
+        flag: ['red', 'orange', 'yellow', 'green', 'blue'].includes(x.flag) ? x.flag : null,
+    })).filter((x) => x.s);
+    const sort = ['symbol', 'change-desc', 'change-asc'].includes(b.sort) ? b.sort : 'symbol';
+    const filter = (b.filter === 'all' || ['red', 'orange', 'yellow', 'green', 'blue'].includes(b.filter)) ? b.filter : 'all';
+    const doc = { items, sort, filter, updatedAt: Date.now() };
+    try { wlWrite(doc); } catch { return res.status(500).json({ error: 'write failed' }); }
+    res.json({ ok: true, updatedAt: doc.updatedAt });
+});
+
 startScanEngine();
 
 app.use(express.static(path.join(__dirname, '..', 'dist')));
