@@ -234,6 +234,8 @@ let brMode = 'ad'; // 'ad' | 'dual'
 const brCache = {};
 const brIdxCache = {};
 const BR_INDEX = { nasdaq: 'QQQ', nyse: 'SPY' };
+const brCmpCustom = {}; // per-exchange symbol override from the "+" button
+function brCmpSym() { return brCmpCustom[brExchange] || BR_INDEX[brExchange]; }
 const brFmt = (n) => (n < 0 ? '−' : '') + Math.abs(Math.round(n)).toLocaleString('en-US');
 async function fetchBreadth(ex) {
     if (brCache[ex]) return brCache[ex];
@@ -246,13 +248,16 @@ async function fetchBreadth(ex) {
     } catch { return null; }
 }
 async function fetchBrIndex(ex) {
-    if (brIdxCache[ex]) return brIdxCache[ex];
+    const sym = brCmpSym();
+    const ck = ex + ':' + sym;
+    if (brIdxCache[ck]) return brIdxCache[ck];
     try {
-        const r = await fetch(`/api/bars?symbol=${BR_INDEX[ex]}&timeframe=D`);
+        const r = await fetch(`/api/bars?symbol=${encodeURIComponent(sym)}&timeframe=D`);
         if (!r.ok) return null;
         const bars = await r.json();
-        brIdxCache[ex] = Array.isArray(bars) ? bars : null;
-        return brIdxCache[ex];
+        const ok = Array.isArray(bars) && bars.length > 1;
+        brIdxCache[ck] = ok ? bars : null;
+        return brIdxCache[ck];
     } catch { return null; }
 }
 function renderBreadth() {
@@ -272,7 +277,7 @@ function renderBreadth() {
             chartBox.innerHTML = '<div class="br-loading">טוען נתוני מדד…</div>';
             fetchBrIndex(brExchange).then((bars) => {
                 if (!bars || !bars.length) {
-                    chartBox.innerHTML = '<div class="br-loading">לא ניתן לטעון את נתוני המדד.</div>';
+                    chartBox.innerHTML = `<div class="br-loading">לא ניתן לטעון נתונים עבור ${brCmpSym()}.</div>`;
                     paintBrStats(cum);
                     document.getElementById('br-updated').textContent = 'עודכן: ' + records[records.length - 1].d;
                     return;
@@ -335,7 +340,7 @@ function paintBrChart(cum) {
         `</svg>`;
 }
 function paintBrDual(cum, bars) {
-    const sym = BR_INDEX[brExchange];
+    const sym = brCmpSym();
     const pxByDate = {};
     for (const b of bars) {
         if (!b || !isFinite(b.time) || !isFinite(b.close)) continue;
@@ -379,9 +384,30 @@ function paintBrDual(cum, bars) {
         `<circle cx="${X(pts.length - 1)}" cy="${YL(last.px)}" r="3.5" fill="${PX}"/>` +
         xTick(0) + xTick(Math.floor(pts.length / 2)) + xTick(pts.length - 1) +
         `</svg>`;
+    const custom = !!brCmpCustom[brExchange];
     document.getElementById('br-legend').innerHTML =
         `<span class="br-chip"><i style="background:${AD}"></i>A/D מצטבר · ציר ימני</span>` +
-        `<span class="br-chip"><i style="background:${PX}"></i>${sym} · ציר שמאלי</span>`;
+        `<span class="br-chip"><i style="background:${PX}"></i><span dir="ltr">${sym}</span> · ציר שמאלי` +
+        (custom ? ` <button class="br-x" id="br-cmp-x" title="חזרה לברירת המחדל">×</button>` : '') + `</span>`;
+    const cmpX = document.getElementById('br-cmp-x');
+    if (cmpX) cmpX.addEventListener('click', () => { delete brCmpCustom[brExchange]; renderBreadth(); });
+}
+function brAskSymbol() {
+    const lg = document.getElementById('br-legend');
+    lg.innerHTML =
+        `<span class="br-chip"><i style="background:#4d7cfe"></i>A/D מצטבר · ציר ימני</span>` +
+        `<input id="br-cmp-input" class="br-cmp-input" dir="ltr" placeholder="סימבול…" autocomplete="off" spellcheck="false">`;
+    const inp = document.getElementById('br-cmp-input');
+    inp.focus();
+    inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const s = inp.value.trim().toUpperCase().replace(/[^A-Z0-9.\-^=]/g, '').slice(0, 12);
+            if (s) brCmpCustom[brExchange] = s;
+            renderBreadth();
+        } else if (e.key === 'Escape') {
+            renderBreadth();
+        }
+    });
 }
 document.querySelectorAll('.br-exbtn').forEach((b) =>
     b.addEventListener('click', () => {
@@ -390,9 +416,15 @@ document.querySelectorAll('.br-exbtn').forEach((b) =>
         brExchange = b.dataset.ex;
         renderBreadth();
     }));
-document.querySelectorAll('.br-modebtn').forEach((b) =>
+document.getElementById('br-plus').addEventListener('click', () => {
+    document.querySelectorAll('.br-modebtn[data-mode]').forEach((x) => x.classList.remove('active'));
+    document.querySelector('.br-modebtn[data-mode="dual"]').classList.add('active');
+    brMode = 'dual';
+    brAskSymbol();
+});
+document.querySelectorAll('.br-modebtn[data-mode]').forEach((b) =>
     b.addEventListener('click', () => {
-        document.querySelectorAll('.br-modebtn').forEach((x) => x.classList.remove('active'));
+        document.querySelectorAll('.br-modebtn[data-mode]').forEach((x) => x.classList.remove('active'));
         b.classList.add('active');
         brMode = b.dataset.mode;
         renderBreadth();
