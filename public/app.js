@@ -230,7 +230,10 @@ document.querySelectorAll('.drawer-close').forEach((b) =>
 
 // ---- Market breadth: cumulative A/D line ----
 let brExchange = 'nasdaq';
+let brMode = 'ad'; // 'ad' | 'dual'
 const brCache = {};
+const brIdxCache = {};
+const BR_INDEX = { nasdaq: 'QQQ', nyse: 'SPY' };
 const brFmt = (n) => (n < 0 ? '−' : '') + Math.abs(Math.round(n)).toLocaleString('en-US');
 async function fetchBreadth(ex) {
     if (brCache[ex]) return brCache[ex];
@@ -242,10 +245,21 @@ async function fetchBreadth(ex) {
         return brCache[ex];
     } catch { return null; }
 }
+async function fetchBrIndex(ex) {
+    if (brIdxCache[ex]) return brIdxCache[ex];
+    try {
+        const r = await fetch(`/api/bars?symbol=${BR_INDEX[ex]}&timeframe=D`);
+        if (!r.ok) return null;
+        const bars = await r.json();
+        brIdxCache[ex] = Array.isArray(bars) ? bars : null;
+        return brIdxCache[ex];
+    } catch { return null; }
+}
 function renderBreadth() {
     const chartBox = document.getElementById('br-chart');
     chartBox.innerHTML = '<div class="br-loading">טוען נתוני רוחב…</div>';
     document.getElementById('br-stats').innerHTML = '';
+    document.getElementById('br-legend').innerHTML = '';
     document.getElementById('br-updated').textContent = '';
     fetchBreadth(brExchange).then((records) => {
         if (!records || !records.length) {
@@ -254,6 +268,21 @@ function renderBreadth() {
         }
         let acc = 0;
         const cum = records.map((r) => { acc += r.net; return { d: r.d, v: acc, net: r.net, adv: r.adv, dec: r.dec }; });
+        if (brMode === 'dual') {
+            chartBox.innerHTML = '<div class="br-loading">טוען נתוני מדד…</div>';
+            fetchBrIndex(brExchange).then((bars) => {
+                if (!bars || !bars.length) {
+                    chartBox.innerHTML = '<div class="br-loading">לא ניתן לטעון את נתוני המדד.</div>';
+                    paintBrStats(cum);
+                    document.getElementById('br-updated').textContent = 'עודכן: ' + records[records.length - 1].d;
+                    return;
+                }
+                paintBrDual(cum, bars);
+                paintBrStats(cum);
+                document.getElementById('br-updated').textContent = 'עודכן: ' + records[records.length - 1].d;
+            });
+            return;
+        }
         paintBrChart(cum);
         paintBrStats(cum);
         document.getElementById('br-updated').textContent = 'עודכן: ' + records[records.length - 1].d;
@@ -305,11 +334,67 @@ function paintBrChart(cum) {
         xTick(0) + xTick(Math.floor(cum.length / 2)) + xTick(cum.length - 1) +
         `</svg>`;
 }
+function paintBrDual(cum, bars) {
+    const sym = BR_INDEX[brExchange];
+    const pxByDate = {};
+    for (const b of bars) {
+        if (!b || !isFinite(b.time) || !isFinite(b.close)) continue;
+        pxByDate[new Date(b.time).toISOString().slice(0, 10)] = b.close;
+    }
+    const pts = [];
+    for (const p of cum) {
+        const px = pxByDate[p.d];
+        if (px != null) pts.push({ d: p.d, ad: p.v, px });
+    }
+    const box = document.getElementById('br-chart');
+    if (pts.length < 2) {
+        box.innerHTML = '<div class="br-loading">אין מספיק נתונים חופפים בין המדד לרוחב.</div>';
+        return;
+    }
+    const W = 640, H = 300, P = { t: 18, r: 64, b: 26, l: 64 };
+    const ads = pts.map((p) => p.ad), pxs = pts.map((p) => p.px);
+    let mnA = Math.min(...ads), mxA = Math.max(...ads);
+    let mnP = Math.min(...pxs), mxP = Math.max(...pxs);
+    if (mnA === mxA) { mnA -= 1; mxA += 1; }
+    if (mnP === mxP) { mnP -= 1; mxP += 1; }
+    const X = (i) => P.l + (i / (pts.length - 1)) * (W - P.l - P.r);
+    const YR = (v) => P.t + (1 - (v - mnA) / (mxA - mnA)) * (H - P.t - P.b); // right: A/D (blue)
+    const YL = (v) => P.t + (1 - (v - mnP) / (mxP - mnP)) * (H - P.t - P.b); // left: index (red)
+    const AD = '#4d7cfe', PX = '#ef5350';
+    const lineA = pts.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${YR(p.ad).toFixed(1)}`).join(' ');
+    const lineP = pts.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${YL(p.px).toFixed(1)}`).join(' ');
+    const last = pts[pts.length - 1];
+    const xTick = (i) => `<text x="${X(i)}" y="${H - 8}" class="br-tick">${pts[i].d.slice(5)}</text>`;
+    box.innerHTML =
+        `<svg viewBox="0 0 ${W} ${H}" class="br-svg" preserveAspectRatio="xMidYMid meet">` +
+        `<line x1="${P.l}" y1="${P.t}" x2="${P.l}" y2="${H - P.b}" class="br-grid"/>` +
+        `<line x1="${W - P.r}" y1="${P.t}" x2="${W - P.r}" y2="${H - P.b}" class="br-grid"/>` +
+        `<text x="${P.l - 8}" y="${YL(mxP) + 4}" class="br-tick br-num" text-anchor="end" fill="${PX}">${brFmt(mxP)}</text>` +
+        `<text x="${P.l - 8}" y="${YL(mnP) + 4}" class="br-tick br-num" text-anchor="end" fill="${PX}">${brFmt(mnP)}</text>` +
+        `<text x="${W - P.r + 8}" y="${YR(mxA) + 4}" class="br-tick br-num" fill="${AD}">${brFmt(mxA)}</text>` +
+        `<text x="${W - P.r + 8}" y="${YR(mnA) + 4}" class="br-tick br-num" fill="${AD}">${brFmt(mnA)}</text>` +
+        `<path d="${lineP}" fill="none" stroke="${PX}" stroke-width="1.8"/>` +
+        `<path d="${lineA}" fill="none" stroke="${AD}" stroke-width="1.8"/>` +
+        `<circle cx="${X(pts.length - 1)}" cy="${YR(last.ad)}" r="3.5" fill="${AD}"/>` +
+        `<circle cx="${X(pts.length - 1)}" cy="${YL(last.px)}" r="3.5" fill="${PX}"/>` +
+        xTick(0) + xTick(Math.floor(pts.length / 2)) + xTick(pts.length - 1) +
+        `</svg>`;
+    document.getElementById('br-legend').innerHTML =
+        `<span class="br-chip"><i style="background:${AD}"></i>A/D מצטבר · ציר ימני</span>` +
+        `<span class="br-chip"><i style="background:${PX}"></i>${sym} · ציר שמאלי</span>`;
+}
 document.querySelectorAll('.br-exbtn').forEach((b) =>
     b.addEventListener('click', () => {
         document.querySelectorAll('.br-exbtn').forEach((x) => x.classList.remove('active'));
         b.classList.add('active');
         brExchange = b.dataset.ex;
+        renderBreadth();
+    }));
+document.querySelectorAll('.br-modebtn').forEach((b) =>
+    b.addEventListener('click', () => {
+        document.querySelectorAll('.br-modebtn').forEach((x) => x.classList.remove('active'));
+        b.classList.add('active');
+        brMode = b.dataset.mode;
         renderBreadth();
     }));
 

@@ -215,10 +215,13 @@ body {
 .wl-sync .wl-synced { color: var(--green, #26a69a); }
 .wl-sync .wl-link { background: none; border: none; color: var(--muted); text-decoration: underline; padding: 2px 4px; font-size: 11px; }
 /* market breadth drawer */
-.br-tools { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.br-exch { display: flex; gap: 6px; }
-.br-exbtn { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 20px; padding: 5px 14px; font-size: 12px; cursor: pointer; }
-.br-exbtn.active { color: #fff; background: var(--accent-soft); border-color: var(--accent); }
+.br-tools { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.br-exch, .br-mode { display: flex; gap: 6px; }
+.br-exbtn, .br-modebtn { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 20px; padding: 5px 14px; font-size: 12px; cursor: pointer; }
+.br-exbtn.active, .br-modebtn.active { color: #fff; background: var(--accent-soft); border-color: var(--accent); }
+.br-legend { display: flex; gap: 14px; margin-bottom: 8px; font-size: 12px; color: var(--muted); }
+.br-chip { display: inline-flex; align-items: center; gap: 6px; }
+.br-chip i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
 .br-updated { font-size: 11px; color: var(--muted); }
 .br-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
 .br-stat { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 6px; text-align: center; }
