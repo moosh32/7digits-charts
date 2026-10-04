@@ -34,9 +34,12 @@ body {
   .topbar, .topbar-scroll { gap: 8px; }
   .topbar { padding: 8px 10px; }
   .brand-sub { display: none; }
-  .search-wrap { flex-basis: 180px; }
 }
 .brand-mark { font-weight: 800; font-size: 18px; letter-spacing: 1px; color: #fff; unicode-bidi: isolate; }
+/* search box: bounded and shrinkable — with min-width:0 the header can never
+   overflow, so the search can never overlap the timeframe strip */
+.topbar .search-wrap { flex: 0 1 220px; min-width: 0; max-width: 300px; }
+#symbol-search { min-width: 0; }
 .brand-mark::first-letter { color: var(--accent); }
 .brand-sub { font-size: 12px; color: var(--muted); }
 .search-wrap { position: relative; flex: 0 1 300px; }
