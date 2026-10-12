@@ -93,6 +93,9 @@ kbd {
    The old custom #draw-rail was removed in v2 (it duplicated the native toolbar). */
 #center { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; position: relative; }
 #chart-view { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
+/* view switching: [hidden] must beat the explicit display:flex above
+   (ID selector outranks the UA [hidden] rule, so chart+scan shared height) */
+#chart-view[hidden], #scan-view[hidden] { display: none !important; }
 #chart { flex: 1 1 auto; min-height: 0; position: relative; }
 #chart canvas { display: block; }
 .status-line { flex: 0 0 auto; padding: 3px 10px; color: var(--muted); font-size: 11px; border-top: 1px solid var(--border); background: var(--panel); }
@@ -186,10 +189,35 @@ table.results .up { color: var(--up); } table.results .dn { color: var(--down); 
 #search-results .s { font-weight: 700; color: var(--gold); }
 #search-results .n { color: var(--muted); font-size: 11px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #search-results .e { color: var(--muted); font-size: 10px; }
-#pine-code { background: #0d1017; color: #c8d3e0; border: none; outline: none; min-height: 300px; padding: 12px; font-family: Consolas, "Courier New", monospace; font-size: 13px; direction: ltr; text-align: left; resize: vertical; }
+#pine-code { background: #0d1017; color: #c8d3e0; border: none; outline: none; min-height: 260px; padding: 12px; font-family: Consolas, "Courier New", monospace; font-size: 13px; direction: ltr; text-align: left; resize: vertical; }
+
+/* ── Pine-as-scan section ── */
+.pine-scan { border-top: 1px solid var(--border); padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
+.pine-scan h4 { margin: 0; font-size: 12px; color: var(--gold); }
+.pine-scan .hint { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.pine-scan .hint code { color: var(--gold); font-size: 10px; }
+.pine-scan-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pine-scan-row select, .pine-scan-row input[type="number"] {
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); padding: 6px 8px; font-size: 12px;
+}
+.pine-scan-row input[type="number"] { width: 70px; }
+.pine-scan-row label { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+#pine-scan-progress { margin: 0; }
 .kbd-table { width: 100%; border-collapse: collapse; margin: 8px 0; }
 .kbd-table td { padding: 7px 14px; border-bottom: 1px solid var(--border); font-size: 12px; }
 .kbd-table td:first-child { white-space: nowrap; width: 40%; }
+
+/* ── Token modal (proper password field so password managers can fill it) ── */
+.token-body { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.token-body label { font-size: 12px; color: var(--muted); }
+.token-body input {
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); padding: 9px 10px; font-size: 13px; font-family: Consolas, monospace;
+  width: 100%; outline: none;
+}
+.token-body input:focus { border-color: var(--gold-dim); }
+.token-body .hint { margin: 0; color: var(--muted); font-size: 11px; }
 
 /* ── Status bar / toast ── */
 #statusbar {
@@ -205,14 +233,32 @@ table.results .up { color: var(--up); } table.results .dn { color: var(--down); 
 #toast[hidden] { display: none; }
 
 /* ── Responsive: 1280px is the known problem width ── */
+/* ≤1280px: the watchlist is a slide-in drawer (not a floating overlay):
+   off-canvas by default, .open slides it in, backdrop dims the rest. */
+#wl-backdrop[hidden] { display: none; }
+#wl-close { display: none; }
 @media (max-width: 1400px) {
   #topbar { gap: 5px; padding: 0 6px; }
   .tb-sub, .tb-btn kbd { display: none; }
   .tb-group button { padding: 5px 6px; }
 }
 @media (max-width: 1280px) {
-  :root { --wl-w: 220px; }
-  #watchlist-panel { position: absolute; inset-inline-start: 0; top: 0; bottom: 0; z-index: 50; box-shadow: -8px 0 24px rgba(0,0,0,.5); }
+  :root { --wl-w: 280px; }
+  #watchlist-panel {
+    position: fixed; inset-inline-start: 0; top: 0; bottom: 0; z-index: 60;
+    width: var(--wl-w); max-width: 86vw; flex: none;
+    transform: translateX(100%); /* RTL: inline-start = right → parked off-screen right */
+    transition: transform .22s ease;
+    box-shadow: -12px 0 32px rgba(0,0,0,.55);
+  }
+  #watchlist-panel.open { transform: none; }
+  #watchlist-panel.collapsed { display: flex; transform: translateX(100%); } /* collapsed is a wide-screen concept */
+  #watchlist-panel.collapsed.open { transform: none; }
+  #wl-backdrop {
+    position: fixed; inset: 0; z-index: 55;
+    background: rgba(2,4,8,.55);
+  }
+  #wl-close { display: inline-block; }
 }
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-thumb { background: #2a3342; border-radius: 5px; }

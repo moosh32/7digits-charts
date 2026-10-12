@@ -57,6 +57,7 @@
         <button id="wl-add-list" class="icon-btn" title="רשימה חדשה">+</button>
         <button id="wl-rename" class="icon-btn" title="שינוי שם">✎</button>
         <button id="wl-del-list" class="icon-btn danger" title="מחיקת רשימה">🗑</button>
+        <button id="wl-close" class="icon-btn" title="סגור">✕</button>
       </div>
       <div class="wl-tools">
         <input id="wl-filter" type="text" placeholder="סינון…" autocomplete="off">
@@ -80,6 +81,7 @@
       </div>
       <ul id="wl-items"></ul>
     </aside>
+    <div id="wl-backdrop" hidden></div>
 
     <section id="center">
       <div id="chart-view">
@@ -115,11 +117,27 @@
   <div class="modal-box wide">
     <div class="modal-head">
       <h3>עורך Pine</h3>
-      <span class="hint">שכבות-על על הגרף בלבד — Pine לא משמש כסריקה בגרסה זו</span>
+      <span class="hint">שכבת-על על הגרף, או הרצה כסריקה על רשימת סימבולים</span>
       <button class="icon-btn modal-close" data-close="pine-modal">✕</button>
     </div>
     <textarea id="pine-code" dir="ltr" spellcheck="false"></textarea>
     <div id="pine-error" class="err" hidden></div>
+    <div class="pine-scan">
+      <h4>הרצה כסריקה</h4>
+      <p class="hint">מריץ את הסקריפט על כל סימבול ברשימה (נרות יומיים). כלל ההתאמה:
+        <code dir="ltr">plot</code> בשם <code dir="ltr">signal</code> — ערך אחרון שונה מ־0 = התאמה.
+        בלי <code dir="ltr">signal</code> נבדק ה־<code dir="ltr">plot</code> הראשון.
+        דוגמה: <code dir="ltr">plot(ta.crossover(ta.sma(close,20), ta.sma(close,50)) ? 1 : 0, "signal")</code></p>
+      <div class="pine-scan-row">
+        <select id="pine-scan-src" aria-label="מקור סימבולים">
+          <option value="last">תוצאות הסריקה האחרונה</option>
+          <option value="liquid">הנזילות ביותר (דולר־ווליום)</option>
+        </select>
+        <label>סימבולים: <input id="pine-scan-n" type="number" value="100" min="10" max="200"></label>
+        <button id="pine-scan-run" class="btn-primary">הרץ כסריקה</button>
+      </div>
+      <div id="pine-scan-progress" class="scan-meta" hidden></div>
+    </div>
     <div class="modal-foot">
       <button id="pine-run" class="btn-primary">הרץ על הגרף</button>
       <button id="pine-clear" class="btn-ghost">נקה אינדיקטורי Pine</button>
@@ -143,6 +161,26 @@
       <tr><td><kbd>Delete</kbd></td><td>מחיקת ציור נבחר</td></tr>
       <tr><td><kbd>?</kbd></td><td>חלון זה</td></tr>
     </table>
+  </div>
+</div>
+
+<!-- ═══ API token modal (replaces the native prompt — password managers can fill this) ═══ -->
+<div id="token-modal" class="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>טוקן סנכרון שרת</h3>
+      <button class="icon-btn modal-close" data-close="token-modal">✕</button>
+    </div>
+    <div class="token-body">
+      <label for="token-input">טוקן ה-API (Bearer):</label>
+      <input id="token-input" type="password" name="api-token" autocomplete="current-password"
+             dir="ltr" placeholder="הדבק טוקן…" spellcheck="false">
+      <p class="hint">נשמר בדפדפן בלבד, ומשמש לאימות מול השרת לסנכרון רשימות, לשוניות וסריקות.</p>
+    </div>
+    <div class="modal-foot">
+      <button id="token-save" class="btn-primary">שמור והתחבר</button>
+      <button id="token-clear" class="btn-ghost">נתק שרת</button>
+    </div>
   </div>
 </div>
 
