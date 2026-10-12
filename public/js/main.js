@@ -70,6 +70,7 @@ async function boot() {
 
   const tabs = new TabsUI(c7, api, onTabSwitch);
   tabs.render();
+  $('tab-duplicate').onclick = () => tabs.duplicate();
   tabs.syncToggles(t0);
   c7.onDrawingsChange = () => tabs.persistDrawings();
 
@@ -79,7 +80,7 @@ async function boot() {
   wireWatchlistButtons(wl);
 
   // ── scan ──
-  const scan = new ScanUI((sym) => { showScanView(false); c7.resize(); tabs.setSymbol(sym); });
+  const scan = new ScanUI((sym) => { showScanView(false); c7.resize(); tabs.setSymbol(sym); }, wl);
   scan.render();
   $('btn-scan').onclick = () => {
     const showing = $('scan-view').hidden;
