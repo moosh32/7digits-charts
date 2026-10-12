@@ -617,7 +617,7 @@ const SCANNERS = [
         },
     },
     {
-        id: 'hvy', name: 'HVY — שיא נפח 252 יום', groups: ['builder'],
+        id: 'hvy', name: 'HV1 (HVY) — שיא נפח שנה (252 ימים)', groups: ['builder'],
         desc: 'נפח(t) >= שיא הנפח ב-252 הימים האחרונים כולל t.',
         run(f) {
             if (!has(f.vol, f.volMax252)) return null;
