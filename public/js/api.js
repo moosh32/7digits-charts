@@ -60,6 +60,7 @@ export const api = {
   bars: (symbol, timeframe) => req(`/api/bars?symbol=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}`),
   search: (q, limit = 12) => req(`/api/search?q=${encodeURIComponent(q)}&limit=${limit}`),
   quote: (symbol) => req(`/api/quote?symbol=${encodeURIComponent(symbol)}`),
+  wlStats: (symbols) => req(`/api/wl-stats?symbols=${symbols.map(encodeURIComponent).join(',')}`),
   quotes: (symbols) => req(`/api/quotes?symbols=${symbols.map(encodeURIComponent).join(',')}`),
   health: () => req('/api/health'),
 
