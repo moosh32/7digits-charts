@@ -7,104 +7,162 @@
 <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-<header class="topbar">
-  <div class="brand">
-    <span class="brand-mark" dir="ltr">7-DIGITS</span>
-    <span class="brand-sub">גרפים למניות ארה״ב</span>
-  </div>
-  <div class="search-wrap">
-    <input id="symbol-search" type="text" placeholder="חיפוש מניה… (לדוגמה: NVDA)" autocomplete="off" spellcheck="false">
-    <div id="search-results" class="search-results" hidden></div>
-  </div>
-  <div class="topbar-scroll">
-  <nav class="timeframes" id="timeframes">
-    <button data-tf="1">דקה</button>
-    <button data-tf="5">5 דק׳</button>
-    <button data-tf="15">15 דק׳</button>
-    <button data-tf="30">30 דק׳</button>
-    <button data-tf="60">שעה</button>
-    <button data-tf="D" class="active">יומי</button>
-    <button data-tf="W">שבועי</button>
-    <button data-tf="M">חודשי</button>
-  </nav>
-  <div class="chart-count" id="chart-count" role="group" aria-label="מספר גרפים">
-    <button data-layout="1" class="active">גרף אחד</button>
-    <button data-layout="2h">שני גרפים</button>
-  </div>
-  <button id="sync-toggle" class="hdr-btn" title="כשפעיל — שינוי סימבול מחליף את הסימבול בכל הגרפים">סנכרון: כבוי</button>
-  <button id="watchlist-toggle" class="hdr-btn">רשימת מעקב</button>
-  <button id="pine-toggle" class="hdr-btn">Pine Script</button>
-  <button id="scans-toggle" class="hdr-btn">סורקים</button>
-  <button id="breadth-toggle" class="hdr-btn">רוחב שוק</button>
-  <div class="current-symbol" id="current-symbol">SPY</div>
-  </div>
-</header>
-<aside id="watchlist-panel" class="drawer" hidden>
-  <div class="drawer-head"><h2>רשימת מעקב</h2><button class="drawer-close" data-close="watchlist-panel">✕</button></div>
-  <button id="watchlist-add" class="drawer-action">＋ הוסף את <span id="watchlist-current" dir="ltr">SPY</span></button>
-  <div id="wl-sync" class="wl-sync" hidden></div>
-  <div class="wl-tools">
-    <div class="wl-filters" id="wl-filters"></div>
-    <button id="wl-sort" class="hdr-btn wl-sort-btn">מיון: סימבול</button>
-  </div>
-  <div id="watchlist-items" class="watchlist-items"></div>
-</aside>
-<div class="wl-ctx" id="wl-ctx" hidden></div>
-<aside id="scans-panel" class="drawer drawer-wide" hidden>
-  <div class="drawer-head"><h2>סורקים</h2><button class="drawer-close" data-close="scans-panel">✕</button></div>
-  <div id="scan-groups" class="scan-groups"></div>
-  <div id="scan-list" class="scan-list"></div>
-  <div id="scan-meta" class="scan-meta" hidden></div>
-  <div id="scan-results" class="scan-results"></div>
-</aside>
-<aside id="breadth-panel" class="drawer drawer-wide" hidden>
-  <div class="drawer-head"><h2>רוחב שוק</h2><button class="drawer-close" data-close="breadth-panel">✕</button></div>
-  <div class="br-tools">
-    <div class="br-exch">
-      <button data-ex="nasdaq" class="br-exbtn active">נאסד&quot;ק</button>
-      <button data-ex="nyse" class="br-exbtn">NYSE</button>
+<div id="app">
+  <!-- ═══ Top bar ═══ -->
+  <header id="topbar">
+    <div class="tb-brand">
+      <span class="tb-mark" dir="ltr">7-DIGITS</span>
+      <span class="tb-sub">גרפים</span>
     </div>
-    <div class="br-mode">
-      <button data-mode="ad" class="br-modebtn active">A/D</button>
-      <button data-mode="dual" class="br-modebtn">A/D + מדד</button>
-      <button id="br-plus" class="br-modebtn br-plus" title="השוואה לסימבול אחר">+</button>
+    <button id="btn-search" class="tb-btn tb-search" title="חיפוש מניה (Ctrl+K)">
+      <span class="search-ico">⌕</span>
+      <span id="search-label" dir="ltr">NVDA</span>
+      <kbd>Ctrl+K</kbd>
+    </button>
+    <nav id="tf-bar" class="tb-group" aria-label="טווח זמן">
+      <button data-tf="1" title="דקה">1m</button>
+      <button data-tf="5">5m</button>
+      <button data-tf="15">15m</button>
+      <button data-tf="30">30m</button>
+      <button data-tf="60">1h</button>
+      <button data-tf="D" class="active">D</button>
+      <button data-tf="W">W</button>
+      <button data-tf="M">M</button>
+    </nav>
+    <div class="tb-group" id="ind-toggles" aria-label="אינדיקטורים">
+      <button data-ind="ma20" title="ממוצע נע 20">MA20</button>
+      <button data-ind="ma50" title="ממוצע נע 50">MA50</button>
+      <button data-ind="ema20" title="ממוצע נע אקספוננציאלי 20">EMA20</button>
+      <button data-ind="volume" title="ווליום">VOL</button>
     </div>
-    <div class="br-updated" id="br-updated"></div>
+    <button id="btn-pine" class="tb-btn" title="עורך Pine — שכבת-על על הגרף">Pine</button>
+    <button id="btn-scan" class="tb-btn" title="בונה סריקות">סורק</button>
+    <span class="tb-spacer"></span>
+    <span id="quote-chip" class="quote-chip" dir="ltr"></span>
+    <button id="btn-help" class="tb-btn" title="קיצורי מקלדת (?)">?</button>
+    <button id="btn-wl" class="tb-btn" title="הצג/הסתר רשימת מעקב">☰</button>
+  </header>
+
+  <!-- ═══ Tab strip ═══ -->
+  <div id="tabstrip">
+    <div id="tabs" role="tablist"></div>
+    <button id="tab-add" title="לשונית חדשה (Alt+T)">+</button>
   </div>
-  <div class="br-legend" id="br-legend"></div>
-  <div class="br-stats" id="br-stats"></div>
-  <div class="br-chart" id="br-chart"></div>
-  <div class="br-note">קו A/D מצטבר — צבירה יומית של עולות פחות יורדות. מקור הנתונים: TradingView, מתעדכן פעם ביום.</div>
-</aside>
-<aside id="pine-panel" class="drawer drawer-wide" hidden>
-  <div class="drawer-head"><h2>Pine Script</h2><button class="drawer-close" data-close="pine-panel">✕</button></div>
-  <textarea id="pine-code" dir="ltr" spellcheck="false"></textarea>
-  <div class="pine-actions">
-    <button id="pine-run" class="btn-primary">הרץ על הגרף</button>
-    <button id="pine-preset-ma" class="hdr-btn">ממוצעים</button>
-    <button id="pine-preset-vol" class="hdr-btn">ווליום</button>
-    <button id="pine-preset-rvol" class="hdr-btn">RVOL 30%</button>
-    <button id="pine-save" class="hdr-btn">שמור</button>
-    <button id="pine-clear" class="hdr-btn">נקה מהגרף</button>
+
+  <!-- ═══ Main ═══ -->
+  <div id="main">
+    <aside id="watchlist-panel">
+      <div class="wl-head">
+        <select id="wl-select" aria-label="רשימת מעקב"></select>
+        <button id="wl-add-list" class="icon-btn" title="רשימה חדשה">+</button>
+        <button id="wl-rename" class="icon-btn" title="שינוי שם">✎</button>
+        <button id="wl-del-list" class="icon-btn danger" title="מחיקת רשימה">🗑</button>
+      </div>
+      <div class="wl-tools">
+        <input id="wl-filter" type="text" placeholder="סינון…" autocomplete="off">
+        <select id="wl-sort" aria-label="מיון">
+          <option value="manual">ידני</option>
+          <option value="symbol">סימבול</option>
+          <option value="change">שינוי%</option>
+          <option value="volume">ווליום</option>
+        </select>
+      </div>
+      <div class="wl-tags" id="wl-tags">
+        <button data-tag="" class="tag-filter active" title="הכל">הכל</button>
+        <button data-tag="red" class="tag-filter"><span class="dot red"></span></button>
+        <button data-tag="orange" class="tag-filter"><span class="dot orange"></span></button>
+        <button data-tag="yellow" class="tag-filter"><span class="dot yellow"></span></button>
+        <button data-tag="green" class="tag-filter"><span class="dot green"></span></button>
+        <button data-tag="blue" class="tag-filter"><span class="dot blue"></span></button>
+      </div>
+      <div id="wl-add">
+        <input id="wl-add-input" type="text" placeholder="הוסף סימבול… (Enter)" autocomplete="off" dir="ltr">
+      </div>
+      <ul id="wl-items"></ul>
+    </aside>
+
+    <section id="center">
+      <div id="chart-view">
+        <div id="chart"></div>
+        <div id="chart-status" class="status-line"></div>
+      </div>
+      <div id="scan-view" hidden>
+        <div id="scan-builder"></div>
+        <div id="scan-results"></div>
+      </div>
+    </section>
+
+    <!-- drawing rail: buttons arm native Vela tools via chart.drawings.setTool() -->
+    <aside id="draw-rail" aria-label="כלי ציור">
+      <button data-tool="select" class="dr-btn" title="בחירה (Esc)">➤</button>
+      <button data-tool="cross" class="dr-btn" title="צלב">✛</button>
+      <button data-tool="trendline" class="dr-btn" title="קו מגמה">╱</button>
+      <button data-tool="hline" class="dr-btn" title="קו אופקי">─</button>
+      <button data-tool="ray" class="dr-btn" title="קרן">⟶</button>
+      <button data-tool="vline" class="dr-btn" title="קו אנכי">│</button>
+      <button data-tool="fibretracement" class="dr-btn" title="פיבונאצ׳י">φ</button>
+      <button data-tool="box" class="dr-btn" title="מלבן">▭</button>
+      <button data-tool="text" class="dr-btn" title="טקסט">T</button>
+      <button data-tool="arrow" class="dr-btn" title="חץ">➔</button>
+      <button data-magnet="1" class="dr-btn" title="מגנט">🧲</button>
+      <button data-eraser="1" class="dr-btn" title="מחק">⌫</button>
+    </aside>
   </div>
-  <div class="pine-settings">
-    <label><input type="checkbox" id="pine-markers" checked> הצג סימנים על הגרף</label>
+
+  <footer id="statusbar">
+    <span id="sb-mode">מקומי</span>
+    <span id="sb-data"></span>
+    <span class="tb-spacer"></span>
+    <span id="sb-clock" dir="ltr"></span>
+  </footer>
+</div>
+
+<!-- ═══ Symbol search modal ═══ -->
+<div id="search-modal" class="modal" hidden>
+  <div class="modal-box">
+    <input id="search-input" type="text" placeholder="הקלד סימבול או שם חברה…" autocomplete="off" dir="ltr">
+    <ul id="search-results"></ul>
   </div>
-  <div id="pine-error" class="pine-error" dir="ltr" hidden></div>
-  <div class="pine-saved">
-    <h3>לייאאוטים</h3>
-    <div class="layout-add">
-      <input id="layout-name" placeholder="שם הלייאאוט…" maxlength="40">
-      <button id="layout-save" class="hdr-btn">שמור נוכחי</button>
+</div>
+
+<!-- ═══ Pine editor modal ═══ -->
+<div id="pine-modal" class="modal" hidden>
+  <div class="modal-box wide">
+    <div class="modal-head">
+      <h3>עורך Pine</h3>
+      <span class="hint">שכבות-על על הגרף בלבד — Pine לא משמש כסריקה בגרסה זו</span>
+      <button class="icon-btn modal-close" data-close="pine-modal">✕</button>
     </div>
-    <div id="layout-list"></div>
+    <textarea id="pine-code" dir="ltr" spellcheck="false"></textarea>
+    <div id="pine-error" class="err" hidden></div>
+    <div class="modal-foot">
+      <button id="pine-run" class="btn-primary">הרץ על הגרף</button>
+      <button id="pine-clear" class="btn-ghost">נקה אינדיקטורי Pine</button>
+    </div>
   </div>
-  <div class="pine-saved">
-    <h3>הסקריפטים שלי</h3>
-    <div id="pine-saved-list"></div>
+</div>
+
+<!-- ═══ Shortcuts dialog ═══ -->
+<div id="help-modal" class="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>קיצורי מקלדת</h3>
+      <button class="icon-btn modal-close" data-close="help-modal">✕</button>
+    </div>
+    <table class="kbd-table">
+      <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>חיפוש מניה</td></tr>
+      <tr><td><kbd>Alt</kbd>+<kbd>T</kbd></td><td>לשונית חדשה</td></tr>
+      <tr><td><kbd>Alt</kbd>+<kbd>W</kbd></td><td>סגירת לשונית</td></tr>
+      <tr><td><kbd>Alt</kbd>+<kbd>[</kbd> / <kbd>Alt</kbd>+<kbd>]</kbd></td><td>לשונית קודמת / הבאה</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>ביטול בחירת ציור / סגירת חלון</td></tr>
+      <tr><td><kbd>Delete</kbd></td><td>מחיקת ציור נבחר</td></tr>
+      <tr><td><kbd>?</kbd></td><td>חלון זה</td></tr>
+    </table>
   </div>
-</aside>
-<main id="chart"></main>
-<script type="module" src="./app.js"></script>
+</div>
+
+<div id="toast" hidden></div>
+
+<script type="module" src="./js/main.js"></script>
 </body>
 </html>
