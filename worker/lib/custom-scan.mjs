@@ -26,6 +26,13 @@ const FIELDS = {
     // spyPerf63 is computed at snapshot build time (see scan-engine.mjs).
     rs63vsSpy: (f, snap) =>
         (f.perf63 != null && snap?.spyPerf63 != null) ? f.perf63 - snap.spyPerf63 : null,
+    // 52-week range, derived from hi52/lo52 already in the snapshot (no rebuild needed).
+    // distHigh52Pct: 0 at the high, negative below it (e.g. -5 = 5% under the 52wk high).
+    distHigh52Pct: (f) => (f.hi52 > 0 && f.price != null) ? (f.price / f.hi52 - 1) * 100 : null,
+    // pctAboveLow52: % above the 52wk low.
+    pctAboveLow52: (f) => pctAbove(f.price, f.lo52),
+    // newHigh52: 1 when today's bar set the 52wk high (day high == 52wk high), else 0. Use with eq 1.
+    newHigh52: (f) => (f.hi52 > 0 && f.dayHigh != null) ? (f.dayHigh >= f.hi52 ? 1 : 0) : null,
     marketCap: (f) => f.mcap,
     avgVolume20: (f) => f.avgV20,
 };
@@ -88,6 +95,21 @@ export function validateScanBody(body) {
     return { criteria, sort, limit };
 }
 
+// Per-symbol daily stats for watchlist columns (public; from the snapshot).
+export function watchlistStats(snap, symbols) {
+    const out = {};
+    if (!snap) return out;
+    for (const sym of symbols) {
+        const f = snap.feats?.[sym] || snap.etfFeats?.[sym];
+        if (!f) continue;
+        out[sym] = {
+            changePct: r2(f.chg), relVol: r1(f.relVol), atrPct: r2(f.atrPct),
+            distHigh52Pct: r2(FIELDS.distHigh52Pct(f)), newHigh52: FIELDS.newHigh52(f) === 1,
+        };
+    }
+    return out;
+}
+
 const r2 = (v) => (v == null ? null : +v.toFixed(2));
 const r1 = (v) => (v == null ? null : +v.toFixed(1));
 
@@ -103,6 +125,8 @@ function rowOf(f, snap) {
         gapPct: r2(f.gap),
         relVolume: r1(f.relVol),
         rs63vsSpy: r2(rs),
+        distHigh52Pct: r2(FIELDS.distHigh52Pct(f)),
+        newHigh52: FIELDS.newHigh52(f) === 1,
         marketCap: f.mcap || 0,
     };
 }
