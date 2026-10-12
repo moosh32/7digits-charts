@@ -12,6 +12,7 @@ const FIELDS = [
   ['rs63vsSpy', 'RS מול SPY (63d)'], ['marketCap', 'שווי שוק'], ['avgVolume20', 'ווליום ממוצע 20'],
   ['sma20', 'SMA20'], ['sma50', 'SMA50'], ['sma200', 'SMA200'],
   ['distHigh52Pct', 'מרחק משיא 52 שבועות %'], ['pctAboveLow52', 'מעל שפל 52 שבועות %'], ['newHigh52', 'שיא 52 שבועות חדש (1=כן)'],
+  ['hve', 'HVE שיא נפח היסטורי (1=כן)'], ['hv1', 'HV1 שיא נפח שנה (1=כן)'],
 ];
 const OPS = [
   ['gt', '>'], ['gte', '≥'], ['lt', '<'], ['lte', '≤'], ['eq', '='], ['between', 'בין'],
@@ -38,6 +39,8 @@ export class ScanUI {
     const choices = [
       ['ווליום חריג', [{field:'relVolume',op:'gte',value:'2'}], 'relVolume'],
       ['קרוב לשיא 52ש׳', [{field:'distHigh52Pct',op:'gte',value:'-5'},{field:'perf63',op:'gte',value:'20'}], 'distHigh52Pct'],
+      ['HVE', [{field:'hve',op:'eq',value:'1'}], 'dollarVolume'],
+      ['HV1', [{field:'hv1',op:'eq',value:'1'}], 'dollarVolume'],
       ['שיא 52ש׳ חדש', [{field:'newHigh52',op:'eq',value:'1'}], 'relVolume'],
       ['גאפ עולה', [{field:'gapPct',op:'gte',value:'4'}], 'gapPct'],
       ['מומנטום נזיל', [{field:'priceVsSma20Pct',op:'gt',value:'0'},{field:'priceVsSma50Pct',op:'gt',value:'0'},{field:'perf21',op:'gte',value:'10'},{field:'atrPct',op:'gte',value:'4'}], 'perf21'],
