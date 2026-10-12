@@ -25,10 +25,8 @@ not_found_handling = "single-page-application"
 binding = "SEVEND_KV"
 id = "PASTE_KV_NAMESPACE_ID_HERE"
 
-# Daily alert evaluation (UTC): 07:30 right after the refresh workflow deploys,
-# 09:30 as a catch-up if the deploy ran late. Alerts are checked once per snapshot.
-[triggers]
-crons = ["30 7 * * *", "30 9 * * *"]
+# Alert evaluation is invoked by the daily GitHub Actions refresh workflow.
+# No Worker cron triggers are configured (the account is at its Free-plan limit).
 
 [vars]
 # Public (non-secret) vars go here. API_SECRET and TWELVEDATA_KEY must be set
