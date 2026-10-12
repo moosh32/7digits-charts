@@ -61,6 +61,7 @@ export class TabsUI {
   }
 
   async loadTab(t) {
+    if (this.c7.loadTab) { await this.c7.loadTab(t); this.syncToggles(t); return; }
     this.c7.status('טוען ' + t.symbol + '…');
     try {
       const j = await this.api.bars(t.symbol, t.timeframe);
