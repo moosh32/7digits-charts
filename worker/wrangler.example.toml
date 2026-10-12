@@ -17,7 +17,8 @@ compatibility_date = "2026-10-01"
 #   <assets>/data/universe.json        (copy of server/universe.json)
 # worker-assets/ in this repo is a ready-made example of that layout.
 [assets]
-directory = "worker-assets"
+binding = "ASSETS"
+directory = "dist"
 not_found_handling = "single-page-application"
 
 [[kv_namespaces]]
