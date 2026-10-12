@@ -617,7 +617,7 @@ const SCANNERS = [
         },
     },
     {
-        id: 'hvy', name: 'HV1 (HVY) — שיא נפח שנה (252 ימים)', groups: ['builder'],
+        id: 'hvy', name: 'HV1 (HVY) — שיא נפח שנה (252 ימים)', groups: ['qullamaggie', 'builder'],
         desc: 'נפח(t) >= שיא הנפח ב-252 הימים האחרונים כולל t.',
         run(f) {
             if (!has(f.vol, f.volMax252)) return null;
@@ -630,7 +630,7 @@ const SCANNERS = [
         },
     },
     {
-        id: 'hve', name: 'HVE — שיא נפח היסטורי', groups: ['builder'],
+        id: 'hve', name: 'HVE — שיא נפח היסטורי', groups: ['qullamaggie', 'builder'],
         desc: 'נפח(t) >= שיא הנפח בכל ההיסטוריה (למעט נר ה-IPO הראשון), מינימום 60 ימי מסחר.',
         run(f) {
             if (!has(f.vol, f.volMaxAll, f.bars)) return null;
