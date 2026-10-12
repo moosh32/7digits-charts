@@ -1,6 +1,7 @@
 // scan.js — custom scan builder: criteria rows, AND logic, run/save/re-run/delete.
 import { api } from './api.js';
-import { scanStore } from './state.js';
+import { scanStore, wlStore } from './state.js';
+import { resultsCsv } from './ux.js';
 import { toast } from './tabs.js';
 
 const FIELDS = [
@@ -18,8 +19,8 @@ const FIELD_HE = Object.fromEntries(FIELDS);
 const OP_HE = Object.fromEntries(OPS);
 
 export class ScanUI {
-  constructor(onPick) {
-    this.onPick = onPick;
+  constructor(onPick, watchlist) {
+    this.onPick = onPick; this.watchlist = watchlist;
     this.criteria = [{ field: 'dollarVolume', op: 'gt', value: '10000000' }, { field: 'price', op: 'gt', value: '5' }];
     this.sort = { field: 'dollarVolume', dir: 'desc' };
     this.lastResult = null;
@@ -30,6 +31,19 @@ export class ScanUI {
     root.innerHTML = '';
     const card = el('div', 'scan-card');
     card.innerHTML = '<h3>בונה סריקות</h3>';
+    const presets = el('div', 'scan-presets');
+    presets.append(el('span', 'scan-meta', 'התחלה מהירה:'));
+    const base = [{field:'price',op:'gt',value:'5'},{field:'avgDollarVolume20',op:'gte',value:'25000000'}];
+    const choices = [
+      ['ווליום חריג', [{field:'relVolume',op:'gte',value:'2'}], 'relVolume'],
+      ['גאפ עולה', [{field:'gapPct',op:'gte',value:'4'}], 'gapPct'],
+      ['מומנטום נזיל', [{field:'priceVsSma20Pct',op:'gt',value:'0'},{field:'priceVsSma50Pct',op:'gt',value:'0'},{field:'perf21',op:'gte',value:'10'},{field:'atrPct',op:'gte',value:'4'}], 'perf21'],
+    ];
+    for (const [label, criteria, sort] of choices) {
+      const b = el('button','btn-ghost',label); b.title = 'טוען תנאים לבונה, ניתן לערוך לפני הרצה';
+      b.onclick = () => { this.criteria = structuredClone([...base, ...criteria]); this.sort = {field:sort,dir:'desc'}; this.render(); }; presets.append(b);
+    }
+    card.append(presets, el('p','ux-hint','תבניות כלליות לנתוני סוף יום, לא סריקת Momentum Leaders המותאמת אישית. בדוק את התנאים לפני הרצה.'));
     const rowsBox = el('div'); card.appendChild(rowsBox);
     this.criteria.forEach((c, i) => rowsBox.appendChild(this.critRow(c, i, rowsBox)));
     const add = el('button', 'btn-ghost', '+ הוסף תנאי');
@@ -95,9 +109,9 @@ export class ScanUI {
   critRow(c, i, box) {
     const row = el('div', 'crit-row');
     const f = el('select'); f.innerHTML = FIELDS.map(([v, l]) => `<option value="${v}">${l}</option>`).join(''); f.value = c.field;
-    const o = el('select'); o.innerHTML = OPS.map(([v, l]) => `<option value="${v}">${l}</option>`).join(''); o.value = c.op;
-    const v = el('input'); v.type = 'number'; v.step = 'any'; v.placeholder = 'ערך'; v.value = c.value ?? ''; v.style.width = '110px';
-    const v2 = el('input'); v2.type = 'number'; v2.step = 'any'; v2.placeholder = 'עד'; v2.value = c.value2 ?? ''; v2.style.width = '90px';
+    const o = el('select'); o.dir = 'ltr'; o.innerHTML = OPS.map(([v, l]) => `<option value="${v}">${l}</option>`).join(''); o.value = c.op;
+    const v = el('input'); v.type = 'number'; v.dir = 'ltr'; v.step = 'any'; v.placeholder = 'ערך'; v.value = c.value ?? ''; v.style.width = '110px';
+    const v2 = el('input'); v2.type = 'number'; v2.dir = 'ltr'; v2.step = 'any'; v2.placeholder = 'עד'; v2.value = c.value2 ?? ''; v2.style.width = '90px';
     v2.style.display = c.op === 'between' ? '' : 'none';
     f.onchange = () => { c.field = f.value; }; o.onchange = () => { c.op = o.value; v2.style.display = o.value === 'between' ? '' : 'none'; };
     v.oninput = () => { c.value = v.value; }; v2.oninput = () => { c.value2 = v2.value; };
@@ -136,9 +150,18 @@ export class ScanUI {
     box.innerHTML = '';
     const card = el('div', 'scan-card');
     const meta = el('div', 'scan-meta');
-    meta.textContent = `${name ? name + ' · ' : ''}${r.count} תוצאות · נתוני ${String(r.asOf || '').slice(0, 10)}`;
+    meta.textContent = `${name ? name + ' · ' : ''}${r.count} התאמות · מוצגות ${r.tickers.length} · נתוני ${String(r.asOf || '').slice(0, 10)}`;
     card.appendChild(meta);
     if (!r.tickers.length) { card.appendChild(el('div', 'skel', 'אין תוצאות לתנאים האלה.')); box.appendChild(card); return; }
+    const actions = el('div','scan-actions');
+    const destination = el('select'); destination.setAttribute('aria-label','רשימת יעד');
+    for (const l of wlStore.lists) { const o = el('option','',l.name); o.value = l.id; destination.append(o); }
+    destination.value = wlStore.activeListId || '';
+    const add = el('button','btn-ghost',`הוסף ${r.tickers.length} מוצגות לרשימה`); add.disabled = !wlStore.lists.length;
+    add.onclick = async () => { add.disabled = true; try { await this.watchlist?.addMany(r.tickers.map(x=>x.symbol), destination.value); } finally { add.disabled = !wlStore.lists.length; } };
+    const csv = el('button','btn-ghost','ייצוא CSV');
+    csv.onclick = () => { const url = URL.createObjectURL(new Blob([resultsCsv(r.tickers)],{type:'text/csv;charset=utf-8'})); const a = el('a'); a.href = url; a.download = '7d-scan-' + String(r.asOf || '').slice(0,10) + '.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); toast('יוצאו ' + r.tickers.length + ' שורות'); };
+    actions.append(destination,add,csv); card.append(actions);
     const t = document.createElement('table'); t.className = 'results';
     t.innerHTML = `<thead><tr>
       <th data-k="symbol">סימבול</th><th>שם</th><th data-k="price">מחיר</th>
@@ -150,7 +173,7 @@ export class ScanUI {
       for (const x of rows) {
         const tr = document.createElement('tr');
         const chg = x.changePct;
-        tr.innerHTML = `<td dir="ltr"><b>${x.symbol}</b></td><td>${escapeHtml(x.name || '')}</td>
+        tr.innerHTML = `<td dir="ltr"><b>${x.symbol}</b></td><td dir="ltr">${escapeHtml(x.name || '')}</td>
           <td dir="ltr">${fmt(x.price)}</td>
           <td dir="ltr" class="${chg >= 0 ? 'up' : 'dn'}">${(chg >= 0 ? '+' : '') + chg.toFixed(2)}%</td>
           <td dir="ltr">${fmtBig(x.dollarVolume)}</td>
