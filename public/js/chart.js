@@ -173,8 +173,11 @@ export class Chart7D {
   undo() { try { this.chart.drawings.undo(); } catch { /* */ } }
   serializeDrawings() { try { return this.chart.drawings.toJSON(); } catch { return null; } }
   restoreDrawings(json) {
-    if (!json) return;
-    try { this.chart.drawings.fromJSON(json); } catch (e) { console.warn('restore drawings failed', e); }
+    if (!this.chart) return;
+    // fromJSON replaces the whole set; an empty doc clears (a tab with no
+    // drawings must not inherit the previous tab's drawings).
+    try { this.chart.drawings.fromJSON(json || { version: 1, drawings: [] }); }
+    catch (e) { console.warn('restore drawings failed', e); }
   }
 
   resize() { try { this.chart.resize(); } catch { /* */ } }

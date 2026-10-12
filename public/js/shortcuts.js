@@ -11,7 +11,6 @@ export function wireShortcuts(ctx) {
       if (!help.hidden) { help.hidden = true; return; }
       ctx.chart.deselect();
       ctx.chart.armTool('select');
-      ctx.syncRail();
       return;
     }
     if (inInput) return;

@@ -38,7 +38,13 @@ export class TabsUI {
     if (id === tabsStore.activeId && !force) return;
     this.switching = true;
     try {
-      this.persistDrawings();
+      // capture the OUTGOING tab's drawings before switching. Never write the
+      // live chart state into the incoming tab (a fresh tab must start clean —
+      // writing it would leak the previous tab's drawings into its doc).
+      const out = tabsStore.active();
+      if (out && out.id !== id && this.c7.chart) {
+        out.drawings = this.c7.serializeDrawings();
+      }
       tabsStore.activeId = id;
       tabsStore.save();
       const t = tabsStore.active();

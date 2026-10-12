@@ -89,16 +89,8 @@ kbd {
 
 /* ── Main layout ── */
 #main { flex: 1 1 auto; display: flex; min-height: 0; position: relative; }
-#draw-rail {
-  flex: 0 0 var(--rail-w); display: flex; flex-direction: column; align-items: center; gap: 2px;
-  background: var(--panel); border-left: 1px solid var(--border); padding: 6px 0; overflow-y: auto;
-}
-.dr-btn {
-  width: 32px; height: 32px; background: none; border: 1px solid transparent; border-radius: var(--radius);
-  color: var(--muted); font-size: 15px; cursor: pointer; line-height: 1;
-}
-.dr-btn:hover { background: var(--panel2); color: var(--text); }
-.dr-btn.armed { background: #2a2415; color: var(--gold); border-color: var(--gold-dim); }
+/* Drawing tools: Vela's native toolbar renders as the chart's left rail (see chart.js).
+   The old custom #draw-rail was removed in v2 (it duplicated the native toolbar). */
 #center { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; position: relative; }
 #chart-view { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
 #chart { flex: 1 1 auto; min-height: 0; position: relative; }

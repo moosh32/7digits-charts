@@ -198,8 +198,10 @@ app.get('/api/bars', async (req, res) => {
         const hit = cacheGet(ck);
         if (hit) return res.json(hit);
         const bars = await getBars(symbol, tfKey, tf);
-        cacheSet(ck, bars, ['1', '5', '15', '30', '60'].includes(tfKey) ? INTRADAY_TTL : DAILY_TTL);
-        res.json(bars);
+        // contract shape: {symbol, timeframe, bars, count}
+        const out = { symbol, timeframe: tfKey, bars, count: bars.length };
+        cacheSet(ck, out, ['1', '5', '15', '30', '60'].includes(tfKey) ? INTRADAY_TTL : DAILY_TTL);
+        res.json(out);
     } catch (e) {
         res.status(502).json({ error: 'data unavailable', detail: String(e.message || e).slice(0, 120) });
     }

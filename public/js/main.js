@@ -13,8 +13,24 @@ const $ = (id) => document.getElementById(id);
 
 async function boot() {
   const serverOk = await api.init();
-  $('sb-mode').textContent = serverOk ? 'מחובר לשרת' : 'מצב מקומי';
-  $('sb-mode').style.color = serverOk ? 'var(--up)' : 'var(--gold)';
+  paintMode();
+  // click the mode indicator to set/clear the API token (server sync)
+  $('sb-mode').style.cursor = 'pointer';
+  $('sb-mode').title = 'לחץ להגדרת טוקן סנכרון שרת';
+  $('sb-mode').onclick = async () => {
+    const cur = api.hasManualSecret();
+    const v = prompt(cur ? 'טוקן סנכרון שרת (ריק לניתוק):' : 'טוקן סנכרון שרת:', '');
+    if (v === null) return;
+    api.setSecret(v.trim() || null);
+    const ok = await api.init();
+    paintMode();
+    toast(ok ? 'מחובר לשרת ✓' : 'מצב מקומי — הסנכרון שמור בדפדפן בלבד');
+  };
+  function paintMode() {
+    const ok = api.state.serverOk;
+    $('sb-mode').textContent = ok ? 'מחובר לשרת' : 'מצב מקומי';
+    $('sb-mode').style.color = ok ? 'var(--up)' : 'var(--gold)';
+  }
 
   try {
     const h = await api.health();
@@ -68,27 +84,8 @@ async function boot() {
     b.onclick = () => tabs.setIndicatorToggle(b.dataset.ind, !tabsStore.active().indicators?.[b.dataset.ind]);
   });
 
-  // ── drawing rail ──
-  const rail = document.querySelectorAll('#draw-rail .dr-btn');
-  const syncRail = () => {
-    const tool = c7.activeTool();
-    rail.forEach((b) => {
-      const t = b.dataset.tool;
-      const armed = t && (t === tool || (t === 'cross' && tool === 'crossline') || (t === 'select' && !tool));
-      b.classList.toggle('armed', !!armed);
-      if (b.dataset.magnet) b.classList.toggle('armed', c7.chart.drawings.getSnapMode() !== 'off');
-      if (b.dataset.eraser) b.classList.toggle('armed', c7.chart.drawings.getMode() === 'eraser');
-    });
-  };
-  rail.forEach((b) => {
-    b.onclick = () => {
-      if (b.dataset.magnet) { c7.toggleMagnet(); }
-      else if (b.dataset.eraser) { c7.toggleEraser(); }
-      else c7.armTool(b.dataset.tool);
-      syncRail();
-    };
-  });
-  syncRail();
+  // ── drawing tools: Vela's native toolbar (left rail inside the chart) owns
+  // tool arming, magnet and eraser — no custom rail (it duplicated the native one).
 
   // ── tab add ──
   $('tab-add').onclick = () => tabs.add();
@@ -106,7 +103,7 @@ async function boot() {
   setInterval(refreshQuote, 60000);
 
   // ── shortcuts ──
-  wireShortcuts({ search, pine, chart: c7, tabs, activeTabId: () => tabsStore.activeId, syncRail });
+  wireShortcuts({ search, pine, chart: c7, tabs, activeTabId: () => tabsStore.activeId });
 
   // ── resize / unload ──
   window.addEventListener('resize', () => c7.resize());
