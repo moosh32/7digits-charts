@@ -6,9 +6,10 @@
 import { makeStore } from './lib/store.mjs';
 import { requireApiAuth } from './lib/auth.mjs';
 import {
-    ensureSnapshot, snapshotStatus, publishSnapshot, peekSnapshot,
+    ensureSnapshot, snapshotStatus, publishSnapshot, peekSnapshot, loadSnapshot,
 } from './lib/snapshot-state.mjs';
 import * as H from './lib/handlers.mjs';
+import * as A from './lib/alerts.mjs';
 
 const json = (body, status = 200) =>
     new Response(JSON.stringify(body), {
@@ -179,6 +180,34 @@ export default {
                     return json(...toTuple(await H.hBreadthPost(body, deps)));
                 });
 
+            // ----- EOD alerts (protected) -----
+            if (pathname === '/api/alerts' && method === 'GET')
+                return need(async () => json(...toTuple(await A.hAlertsList(deps))));
+            if (pathname === '/api/alerts' && method === 'POST')
+                return need(async () => {
+                    const body = await readJson(request);
+                    if (body.__badJson) return json({ error: 'bad json' }, 400);
+                    return json(...toTuple(await A.hAlertsCreate(body, deps)));
+                });
+            if (pathname === '/api/alerts/history' && method === 'GET')
+                return need(async () => json(...toTuple(await A.hAlertsHistory(deps))));
+            if (pathname === '/api/alerts/history' && method === 'DELETE')
+                return need(async () => json(...toTuple(await A.hAlertsHistoryClear(deps))));
+            if (pathname === '/api/alerts/evaluate' && method === 'POST')
+                return need(async () => {
+                    const body = await readJson(request);
+                    return json(...toTuple(await A.hAlertsEvaluate(body.__badJson ? {} : body, deps)));
+                });
+            const al = pathname.match(/^\/api\/alerts\/([^/]+)$/);
+            if (al && method === 'PUT')
+                return need(async () => {
+                    const body = await readJson(request);
+                    if (body.__badJson) return json({ error: 'bad json' }, 400);
+                    return json(...toTuple(await A.hAlertsUpdate(decodeURIComponent(al[1]), body, deps)));
+                });
+            if (al && method === 'DELETE')
+                return need(async () => json(...toTuple(await A.hAlertsDelete(decodeURIComponent(al[1]), deps))));
+
             // ----- snapshot refresh (protected) -----
             if (pathname === '/api/snapshot/refresh' && method === 'POST')
                 return need(async () => json(...toTuple(await H.hSnapshotRefresh(deps))));
@@ -187,6 +216,20 @@ export default {
         } catch (e) {
             return json({ error: 'internal error', detail: String(e.message || e).slice(0, 120) }, 500);
         }
+    },
+
+    // Daily cron (see [triggers] in wrangler.example.toml): the refresh workflow
+    // deploys a worker carrying the fresh snapshot asset; the cron then loads it
+    // and evaluates every active alert. Re-runs are harmless: an alert is
+    // checked at most once per snapshot asOf.
+    async scheduled(event, env, ctx) {
+        ctx.waitUntil((async () => {
+            const origin = (env.PUBLIC_ORIGIN || 'https://sevend-charts.mooshkriss2005.workers.dev');
+            await loadSnapshot(env, origin);
+            const deps = { env, store: makeStore(env), getSnapshot: peekSnapshot };
+            const r = await A.runAlertEvaluation(deps, { trigger: 'cron' });
+            console.log('alerts cron', JSON.stringify({ status: r.status, fired: r.body.fired, checked: r.body.checked, asOf: r.body.snapshotAsOf }));
+        })().catch((e) => console.error('alerts cron failed:', e.message)));
     },
 };
 
