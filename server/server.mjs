@@ -2,8 +2,9 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startScanEngine } from './scans/snapshot.mjs';
+import { startScanEngine, getSnapshot } from './scans/snapshot.mjs';
 import { listScanners, runScanner } from './scans/definitions.mjs';
+import contractRoutes from './contract-routes.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -150,9 +151,10 @@ async function getBars(symbol, tfKey, tf) {
 // ---------- symbol universe (official Nasdaq Trader symbol directories) ----------
 const UNIVERSE = JSON.parse(fs.readFileSync(new URL('./universe.json', import.meta.url), 'utf8'));
 
-function searchUniverse(q) {
+function searchUniverse(q, limit = 12) {
     const uq = q.toUpperCase().trim();
     if (!uq) return [];
+    const lim = Math.max(1, Math.min(50, Number(limit) || 12));
     const hits = [];
     for (const it of UNIVERSE) {
         let score = -1;
@@ -162,7 +164,12 @@ function searchUniverse(q) {
         if (score >= 0) hits.push([score, it]);
     }
     hits.sort((a, b) => a[0] - b[0] || (a[1].s < b[1].s ? -1 : 1));
-    return hits.slice(0, 12).map(([, it]) => ({ symbol: it.s, name: it.n, exchange: it.e }));
+    const snap = getSnapshot();
+    const etfSet = snap?.etfFeats ? new Set(Object.keys(snap.etfFeats)) : null;
+    return hits.slice(0, lim).map(([, it]) => ({
+        symbol: it.s, name: it.n, exchange: it.e,
+        type: etfSet && etfSet.has(it.s) ? 'etf' : 'stock',
+    }));
 }
 const cache = new Map();
 const INTRADAY_TTL = 5 * 60 * 1000;
@@ -205,7 +212,7 @@ app.get('/api/search', async (req, res) => {
         const ck = `search:${q.toLowerCase()}`;
         const hit = cacheGet(ck);
         if (hit) return res.json(hit);
-        const out = searchUniverse(q);
+        const out = searchUniverse(q, req.query.limit);
         cacheSet(ck, out, SEARCH_TTL);
         res.json(out);
     } catch (e) {
@@ -213,7 +220,15 @@ app.get('/api/search', async (req, res) => {
     }
 });
 
-app.get('/api/health', (req, res) => res.json({ ok: true, twelvedata: !!TD_KEY }));
+app.get('/api/health', (req, res) => {
+    const snap = getSnapshot();
+    res.json({
+        ok: true,
+        twelvedata: !!TD_KEY,
+        snapshot: { asOf: snap?.asOf || null, count: snap ? Object.keys(snap.feats || {}).length : 0 },
+        kv: false,
+    });
+});
 
 app.get('/api/quote', async (req, res) => {
     try {
@@ -229,6 +244,9 @@ app.get('/api/quote', async (req, res) => {
             symbol,
             price: +last.close.toFixed(2),
             changePct: prev.close ? +(((last.close - prev.close) / prev.close * 100).toFixed(2)) : 0,
+            dayHigh: +last.high.toFixed(2),
+            dayLow: +last.low.toFixed(2),
+            volume: last.volume,
         };
         cacheSet(ck, out, 60 * 1000);
         res.json(out);
@@ -258,6 +276,9 @@ app.get('/api/quotes', async (req, res) => {
                     symbol,
                     price: +last.close.toFixed(2),
                     changePct: prev.close ? +(((last.close - prev.close) / prev.close * 100).toFixed(2)) : 0,
+                    dayHigh: +last.high.toFixed(2),
+                    dayLow: +last.low.toFixed(2),
+                    volume: last.volume,
                 };
                 cacheSet(ck, q, 60 * 1000);
                 out[symbol] = q;
@@ -314,8 +335,14 @@ function wlWrite(doc) {
     fs.renameSync(tmp, WL_FILE);
 }
 const wlAuth = (req, res, next) => {
-    if (!WL_SECRET) return res.status(503).json({ error: 'watchlist sync not configured' });
     const t = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    const apiSecret = (process.env.API_SECRET || '').trim();
+    if (apiSecret) {
+        // Contract auth is primary; the legacy WATCHLIST_SECRET stays valid as a fallback.
+        if (t && (t === apiSecret || (WL_SECRET && t === WL_SECRET))) return next();
+        return res.status(401).json({ error: 'unauthorized' });
+    }
+    if (!WL_SECRET) return res.status(503).json({ error: 'watchlist sync not configured' });
     if (!t || t !== WL_SECRET) return res.status(401).json({ error: 'unauthorized' });
     next();
 };
@@ -357,8 +384,14 @@ function brWrite(records) {
     fs.renameSync(tmp, BR_FILE);
 }
 const brAuth = (req, res, next) => {
-    if (!BR_SECRET) return res.status(503).json({ error: 'breadth feed not configured' });
     const t = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    const apiSecret = (process.env.API_SECRET || '').trim();
+    if (apiSecret) {
+        // Contract auth is primary; the legacy BREADTH_SECRET stays valid as a fallback.
+        if (t && (t === apiSecret || (BR_SECRET && t === BR_SECRET))) return next();
+        return res.status(401).json({ error: 'unauthorized' });
+    }
+    if (!BR_SECRET) return res.status(503).json({ error: 'breadth feed not configured' });
     if (!t || t !== BR_SECRET) return res.status(401).json({ error: 'unauthorized' });
     next();
 };
@@ -390,6 +423,10 @@ app.get('/api/breadth', (req, res) => {
     const records = brRead().records.filter((r) => r.exchange === ex);
     res.json({ exchange: ex, records });
 });
+
+// ---------- Frozen API contract routes (custom scans, watchlists v2, tabs, snapshot refresh) ----------
+// Implemented once in worker/lib/handlers.mjs and shared with the Cloudflare worker.
+app.use(contractRoutes);
 
 startScanEngine();
 
