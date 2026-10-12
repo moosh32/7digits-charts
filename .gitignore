@@ -1,2 +1,6 @@
 node_modules/
 dist/
+data/store/
+scripts/.dev-data/
+scripts/node_modules/
+scripts/.e2e-shots/

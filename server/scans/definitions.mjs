@@ -4,7 +4,7 @@
 //  S = Stokbee/Pradeep Bonde (EP9M article, 4% indicator, TraderLion interview)
 //  R = Israel's own #סורקים channel (36 scanners, exact criteria)
 //  setups = the 7-DIGITS Discord setup channels + lessons
-import { getSnapshot } from './snapshot.mjs';
+import { getSnapshot } from './snapshot-provider.mjs';
 
 const M = 1_000_000;
 const money = (v) => v >= 1e9 ? (v / 1e9).toFixed(1) + 'B' : v >= M ? (v / M).toFixed(1) + 'M' : Math.round(v / 1000) + 'K';

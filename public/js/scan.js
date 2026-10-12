@@ -1,0 +1,197 @@
+// scan.js — custom scan builder: criteria rows, AND logic, run/save/re-run/delete.
+import { api } from './api.js';
+import { scanStore } from './state.js';
+import { toast } from './tabs.js';
+
+const FIELDS = [
+  ['price', 'מחיר ($)'], ['dollarVolume', 'דולר-ווליום'], ['avgDollarVolume20', 'דולר-ווליום ממוצע 20'],
+  ['atrPct', 'ATR %'], ['gapPct', 'גאפ %'], ['relVolume', 'ווליום יחסי'],
+  ['priceVsSma20Pct', 'מרחק מ-SMA20 %'], ['priceVsSma50Pct', 'מרחק מ-SMA50 %'], ['priceVsSma200Pct', 'מרחק מ-SMA200 %'],
+  ['perf5', 'ביצוע 5 ימים %'], ['perf21', 'ביצוע 21 ימים %'], ['perf63', 'ביצוע 63 ימים %'],
+  ['rs63vsSpy', 'RS מול SPY (63d)'], ['marketCap', 'שווי שוק'], ['avgVolume20', 'ווליום ממוצע 20'],
+  ['sma20', 'SMA20'], ['sma50', 'SMA50'], ['sma200', 'SMA200'],
+];
+const OPS = [
+  ['gt', '>'], ['gte', '≥'], ['lt', '<'], ['lte', '≤'], ['eq', '='], ['between', 'בין'],
+];
+const FIELD_HE = Object.fromEntries(FIELDS);
+const OP_HE = Object.fromEntries(OPS);
+
+export class ScanUI {
+  constructor(onPick) {
+    this.onPick = onPick;
+    this.criteria = [{ field: 'dollarVolume', op: 'gt', value: '10000000' }, { field: 'price', op: 'gt', value: '5' }];
+    this.sort = { field: 'dollarVolume', dir: 'desc' };
+    this.lastResult = null;
+  }
+
+  render() {
+    const root = document.getElementById('scan-builder');
+    root.innerHTML = '';
+    const card = el('div', 'scan-card');
+    card.innerHTML = '<h3>בונה סריקות</h3>';
+    const rowsBox = el('div'); card.appendChild(rowsBox);
+    this.criteria.forEach((c, i) => rowsBox.appendChild(this.critRow(c, i, rowsBox)));
+    const add = el('button', 'btn-ghost', '+ הוסף תנאי');
+    add.onclick = () => { this.criteria.push({ field: 'price', op: 'gt', value: '' }); this.render(); };
+    const actions = el('div', 'scan-actions');
+    actions.appendChild(add);
+
+    const sortSel = el('select');
+    sortSel.innerHTML = '<option value="">ללא מיון</option>' + FIELDS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+    if (this.sort) sortSel.value = this.sort.field;
+    const dirSel = el('select');
+    dirSel.innerHTML = '<option value="desc">יורד</option><option value="asc">עולה</option>';
+    dirSel.value = this.sort?.dir || 'desc';
+    const limInp = el('input'); limInp.type = 'number'; limInp.value = '100'; limInp.min = '1'; limInp.max = '500'; limInp.style.width = '70px'; limInp.title = 'מגבלה';
+    actions.append(' מיון: ', sortSel, dirSel, ' מגבלה: ', limInp);
+
+    const run = el('button', 'btn-primary', 'הרץ סריקה');
+    run.onclick = () => {
+      this.sort = sortSel.value ? { field: sortSel.value, dir: dirSel.value } : null;
+      this.runScan(+limInp.value || 100);
+    };
+    actions.appendChild(run);
+
+    const saveName = el('input'); saveName.type = 'text'; saveName.placeholder = 'שם לסריקה שמורה…'; saveName.style.width = '170px';
+    const save = el('button', 'btn-ghost', 'שמור סריקה');
+    save.onclick = async () => {
+      const name = saveName.value.trim();
+      if (!name) { toast('תן שם לסריקה'); return; }
+      if (!this.validCriteria().length) { toast('אין תנאים תקינים'); return; }
+      await scanStore.saveScan(name, this.validCriteria(), this.sort);
+      toast('הסריקה נשמרה'); this.render();
+    };
+    actions.append(saveName, save);
+    card.appendChild(actions);
+    root.appendChild(card);
+
+    // saved scans
+    const saved = el('div', 'scan-card');
+    saved.innerHTML = '<h3>סריקות שמורות</h3>';
+    if (!scanStore.scans.length) saved.appendChild(el('div', 'skel', 'אין סריקות שמורות עדיין.'));
+    for (const s of scanStore.scans) {
+      const row = el('div', 'saved-scan');
+      row.innerHTML = `<span class="nm"></span><span class="scan-meta" dir="ltr">${s.criteria?.length || 0} תנאים</span>`;
+      row.querySelector('.nm').textContent = s.name;
+      const rerun = el('button', 'btn-ghost', 'הרצה חוזרת');
+      rerun.onclick = () => this.runSaved(s);
+      const edit = el('button', 'btn-ghost', 'טען לבונה');
+      edit.onclick = () => { this.criteria = JSON.parse(JSON.stringify(s.criteria || [])); this.sort = s.sort ? { ...s.sort } : null; this.render(); };
+      const del = el('button', 'btn-ghost', 'מחק');
+      del.onclick = async () => { if (confirm(`למחוק את "${s.name}"?`)) { await scanStore.delete(s.id); this.render(); } };
+      row.append(rerun, edit, del);
+      saved.appendChild(row);
+    }
+    root.appendChild(saved);
+  }
+
+  validCriteria() {
+    return this.criteria
+      .map((c) => ({ field: c.field, op: c.op, value: parseFloat(c.value), value2: c.op === 'between' ? parseFloat(c.value2) : undefined }))
+      .filter((c) => c.field && c.op && isFinite(c.value) && (c.op !== 'between' || isFinite(c.value2)));
+  }
+
+  critRow(c, i, box) {
+    const row = el('div', 'crit-row');
+    const f = el('select'); f.innerHTML = FIELDS.map(([v, l]) => `<option value="${v}">${l}</option>`).join(''); f.value = c.field;
+    const o = el('select'); o.innerHTML = OPS.map(([v, l]) => `<option value="${v}">${l}</option>`).join(''); o.value = c.op;
+    const v = el('input'); v.type = 'number'; v.step = 'any'; v.placeholder = 'ערך'; v.value = c.value ?? ''; v.style.width = '110px';
+    const v2 = el('input'); v2.type = 'number'; v2.step = 'any'; v2.placeholder = 'עד'; v2.value = c.value2 ?? ''; v2.style.width = '90px';
+    v2.style.display = c.op === 'between' ? '' : 'none';
+    f.onchange = () => { c.field = f.value; }; o.onchange = () => { c.op = o.value; v2.style.display = o.value === 'between' ? '' : 'none'; };
+    v.oninput = () => { c.value = v.value; }; v2.oninput = () => { c.value2 = v2.value; };
+    const rm = el('button', 'rm-crit', '✕'); rm.title = 'הסר תנאי';
+    rm.onclick = () => { this.criteria.splice(i, 1); this.render(); };
+    row.append(f, o, v, v2, rm);
+    return row;
+  }
+
+  async runScan(limit) {
+    const criteria = this.validCriteria();
+    if (!criteria.length) { toast('הוסף לפחות תנאי אחד תקין'); return; }
+    this.renderResults('<div class="skel">מריץ סריקה…</div>');
+    try {
+      const r = await api.scanRun(criteria, this.sort, limit);
+      this.lastResult = r;
+      this.renderResultsTable(r, null);
+    } catch (e) { this.renderResults(`<div class="err">הסריקה נכשלה — נסה שוב.</div>`); }
+  }
+
+  async runSaved(s) {
+    this.renderResults('<div class="skel">מריץ סריקה שמורה…</div>');
+    try {
+      const r = api.state.serverOk
+        ? await api.scanRunSaved(s.id, 200)
+        : await api.scanRun(s.criteria, s.sort, 200);
+      this.lastResult = r;
+      this.renderResultsTable(r, s.name);
+    } catch (e) { this.renderResults(`<div class="err">הסריקה נכשלה — נסה שוב.</div>`); }
+  }
+
+  renderResults(html) { document.getElementById('scan-results').innerHTML = html; }
+
+  renderResultsTable(r, name) {
+    const box = document.getElementById('scan-results');
+    box.innerHTML = '';
+    const card = el('div', 'scan-card');
+    const meta = el('div', 'scan-meta');
+    meta.textContent = `${name ? name + ' · ' : ''}${r.count} תוצאות · נתוני ${String(r.asOf || '').slice(0, 10)}`;
+    card.appendChild(meta);
+    if (!r.tickers.length) { card.appendChild(el('div', 'skel', 'אין תוצאות לתנאים האלה.')); box.appendChild(card); return; }
+    const t = document.createElement('table'); t.className = 'results';
+    t.innerHTML = `<thead><tr>
+      <th data-k="symbol">סימבול</th><th>שם</th><th data-k="price">מחיר</th>
+      <th data-k="changePct">שינוי%</th><th data-k="dollarVolume">דולר-ווליום</th>
+      <th data-k="atrPct">ATR%</th><th data-k="gapPct">גאפ%</th></tr></thead><tbody></tbody>`;
+    const tb = t.querySelector('tbody');
+    const draw = (rows) => {
+      tb.innerHTML = '';
+      for (const x of rows) {
+        const tr = document.createElement('tr');
+        const chg = x.changePct;
+        tr.innerHTML = `<td dir="ltr"><b>${x.symbol}</b></td><td>${escapeHtml(x.name || '')}</td>
+          <td dir="ltr">${fmt(x.price)}</td>
+          <td dir="ltr" class="${chg >= 0 ? 'up' : 'dn'}">${(chg >= 0 ? '+' : '') + chg.toFixed(2)}%</td>
+          <td dir="ltr">${fmtBig(x.dollarVolume)}</td>
+          <td dir="ltr">${x.atrPct?.toFixed(2)}</td>
+          <td dir="ltr" class="${x.gapPct >= 0 ? 'up' : 'dn'}">${(x.gapPct >= 0 ? '+' : '') + x.gapPct?.toFixed(2)}%</td>`;
+        tr.onclick = () => this.onPick && this.onPick(x.symbol);
+        tb.appendChild(tr);
+      }
+    };
+    let dir = 1, lastK = null;
+    t.querySelectorAll('th[data-k]').forEach((th) => {
+      th.onclick = () => {
+        const k = th.dataset.k;
+        dir = lastK === k ? -dir : -1; lastK = k;
+        const rows = [...r.tickers].sort((a, b) => dir * ((a[k] ?? 0) - (b[k] ?? 0) || String(a[k] ?? '').localeCompare(String(b[k] ?? ''))));
+        draw(rows);
+      };
+    });
+    draw(r.tickers);
+    card.appendChild(t); box.appendChild(card);
+  }
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function escapeHtml(s) { return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function fmt(n) { return n == null ? '—' : (+n).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
+function fmtBig(n) {
+  if (n == null) return '—';
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return String(Math.round(n));
+}
+
+export function showScanView(show) {
+  document.getElementById('scan-view').hidden = !show;
+  document.getElementById('chart-view').hidden = show;
+  document.getElementById('btn-scan').classList.toggle('active', show);
+}
