@@ -208,6 +208,8 @@ export class Layout7D {
       #chart[data-layout="4"] {grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}
       .chart-cell {display:flex;flex-direction:column;min-width:0;min-height:0;border:1px solid var(--border,#232b38);overflow:hidden}
       .chart-cell.selected {border-color:var(--gold,#c9a227)}
+      /* In split layouts, keep the selected pane's native drawing toolbar as the shared toolbar. */
+      #chart[data-layout]:not([data-layout="1"]) .chart-cell:not(.selected) .vela-dtb {display:none !important}
       .cell-head {display:flex;align-items:center;gap:6px;padding:3px 6px;background:#141a24;direction:rtl;min-height:28px}
       .cell-head button,.cell-head input,.cell-head select,#chart-layout,.pane-link {font:inherit;color:#d7dce3;background:#0b0e14;border:1px solid #323c4e;border-radius:4px;padding:3px 6px}
       .cell-head input {width:75px;min-width:0;direction:ltr}
