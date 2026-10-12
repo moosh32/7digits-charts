@@ -14,22 +14,39 @@ const $ = (id) => document.getElementById(id);
 async function boot() {
   const serverOk = await api.init();
   paintMode();
-  // click the mode indicator to set/clear the API token (server sync)
-  $('sb-mode').style.cursor = 'pointer';
-  $('sb-mode').title = 'לחץ להגדרת טוקן סנכרון שרת';
-  $('sb-mode').onclick = async () => {
-    const cur = api.hasManualSecret();
-    const v = prompt(cur ? 'טוקן סנכרון שרת (ריק לניתוק):' : 'טוקן סנכרון שרת:', '');
-    if (v === null) return;
-    api.setSecret(v.trim() || null);
-    const ok = await api.init();
-    paintMode();
-    toast(ok ? 'מחובר לשרת ✓' : 'מצב מקומי — הסנכרון שמור בדפדפן בלבד');
-  };
+  // status-bar click opens the token modal (proper password field — the old
+  // native prompt() is gone so password managers can fill it)
+  wireTokenModal();
   function paintMode() {
     const ok = api.state.serverOk;
     $('sb-mode').textContent = ok ? 'מחובר לשרת' : 'מצב מקומי';
     $('sb-mode').style.color = ok ? 'var(--up)' : 'var(--gold)';
+  }
+  function wireTokenModal() {
+    const modal = $('token-modal'), input = $('token-input');
+    const open = () => {
+      try { input.value = localStorage.getItem('7d.api.secret') || ''; } catch { input.value = ''; }
+      modal.hidden = false;
+      setTimeout(() => { input.focus(); input.select(); }, 30);
+    };
+    const close = () => { modal.hidden = true; };
+    $('sb-mode').style.cursor = 'pointer';
+    $('sb-mode').title = 'לחץ להגדרת טוקן סנכרון שרת';
+    $('sb-mode').onclick = open;
+    modal.querySelector('.modal-close').onclick = close;
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('token-save').click(); });
+    $('token-save').onclick = async () => {
+      api.setSecret(input.value.trim() || null);
+      const ok = await api.init();
+      paintMode(); close();
+      toast(ok ? 'מחובר לשרת ✓' : 'מצב מקומי — הסנכרון שמור בדפדפן בלבד');
+    };
+    $('token-clear').onclick = async () => {
+      api.setSecret(null); input.value = '';
+      await api.init(); paintMode(); close();
+      toast('נותק מהשרת — מצב מקומי');
+    };
   }
 
   try {
@@ -73,7 +90,9 @@ async function boot() {
   // ── search / pine ──
   const search = new SearchUI((sym) => { showScanView(false); c7.resize(); tabs.setSymbol(sym); });
   search.wire();
-  const pine = new PineUI(c7, () => tabsStore.active(), () => tabsStore.save());
+  const pine = new PineUI(c7, () => tabsStore.active(), () => tabsStore.save(),
+    () => scan.lastResult,
+    (sym) => { showScanView(false); c7.resize(); tabs.setSymbol(sym); });
   pine.wire();
 
   // ── timeframe + indicator toggles ──

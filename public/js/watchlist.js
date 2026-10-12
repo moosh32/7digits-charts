@@ -71,7 +71,10 @@ export class WatchlistUI {
         <span class="chg ${chg == null ? '' : chg >= 0 ? 'up' : 'dn'}" dir="ltr">${chg == null ? '' : (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%'}</span>
         <button class="rm" title="הסר">✕</button>`;
       li.title = item.color ? 'תג: ' + COLOR_HE[item.color] : item.symbol;
-      li.onclick = () => this.onPick && this.onPick(item.symbol);
+      li.onclick = () => {
+        if (this.onPick) this.onPick(item.symbol);
+        if (isNarrowWatchlist()) closeWatchlistDrawer(); // drawer out of the way after picking
+      };
       li.querySelector('.rm').onclick = (e) => { e.stopPropagation(); this.remove(item.symbol); };
       li.oncontextmenu = (e) => { e.preventDefault(); this.cycleColor(item.symbol); };
       ul.appendChild(li);
@@ -141,6 +144,37 @@ export function wireWatchlistButtons(ui) {
   document.getElementById('wl-del-list').onclick = () => ui.removeList();
   const inp = document.getElementById('wl-add-input');
   inp.onkeydown = (e) => { if (e.key === 'Enter') { ui.add(inp.value); inp.value = ''; } };
-  document.getElementById('btn-wl').onclick = () =>
+  document.getElementById('btn-wl').onclick = () => toggleWatchlist();
+  document.getElementById('wl-close').onclick = () => closeWatchlistDrawer();
+  document.getElementById('wl-backdrop').onclick = () => closeWatchlistDrawer();
+  // Esc closes the drawer on narrow screens
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isNarrowWatchlist() &&
+        document.getElementById('watchlist-panel').classList.contains('open')) {
+      closeWatchlistDrawer();
+    }
+  });
+  // leaving narrow mode resets drawer state
+  narrowWatchlistMQ().addEventListener('change', (e) => { if (!e.matches) closeWatchlistDrawer(); });
+}
+
+// ── ≤1280px drawer behavior (wide screens keep the old collapse toggle) ──
+export const narrowWatchlistMQ = () => window.matchMedia('(max-width: 1280px)');
+export const isNarrowWatchlist = () => narrowWatchlistMQ().matches;
+
+export function openWatchlistDrawer() {
+  document.getElementById('watchlist-panel').classList.add('open');
+  document.getElementById('wl-backdrop').hidden = false;
+}
+export function closeWatchlistDrawer() {
+  document.getElementById('watchlist-panel').classList.remove('open');
+  document.getElementById('wl-backdrop').hidden = true;
+}
+export function toggleWatchlist() {
+  if (isNarrowWatchlist()) {
+    document.getElementById('watchlist-panel').classList.contains('open')
+      ? closeWatchlistDrawer() : openWatchlistDrawer();
+  } else {
     document.getElementById('watchlist-panel').classList.toggle('collapsed');
+  }
 }

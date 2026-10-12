@@ -27,6 +27,16 @@ Target: `https://sevend-charts.mooshkriss2005.workers.dev/` (already live, curre
 6. Verify: `curl https://sevend-charts.mooshkriss2005.workers.dev/api/health`
    → `{ok:true, snapshot:{...}, kv:true}`.
 
+## Daily data refresh (automatic)
+`.github/workflows/refresh-snapshot.yml` runs daily at 07:00 UTC: rebuilds
+`data/scan-snapshot.json` + `server/universe.json` from the Nasdaq API and
+commits them. No action needed — but the new snapshot only reaches the live
+worker on the next deploy, because `scripts/prepare-worker-assets.mjs` copies
+the data files into the deploy bundle. So: before each `wrangler deploy`,
+`git pull` first. Freshness is visible in the app: status bar shows
+"נתונים: <date> · <N> מניות" (from `/api/health`), and every scan result
+header shows its data date.
+
 ## In the app (Israel, one time)
 Open the app → click the status-bar indicator (bottom, "מצב מקומי") → paste the same
 `API_SECRET` value → the app switches to "מחובר לשרת" and watchlists/tabs/scans persist

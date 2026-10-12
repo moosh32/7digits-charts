@@ -57,6 +57,7 @@ function parseMoney(s) {
 
 export async function fetchUniverse() {
     const out = [];
+    const EX = { nasdaq: 'NASDAQ', nyse: 'NYSE', amex: 'AMEX' };
     for (const ex of ['nasdaq', 'nyse', 'amex']) {
         let offset = 0, total = Infinity;
         while (offset < total) {
@@ -66,7 +67,7 @@ export async function fetchUniverse() {
                 const price = parseMoney(r.lastsale);
                 const mcap = parseMoney(r.marketCap);
                 if (price >= 2 && mcap >= 30_000_000 && r.symbol && !/[^A-Z0-9.\-]/.test(r.symbol))
-                    out.push({ s: r.symbol, n: String(r.name || '').replace(/ Common Stock.*$/, ''), price, mcap });
+                    out.push({ s: r.symbol, n: String(r.name || '').replace(/ Common Stock.*$/, ''), price, mcap, e: EX[ex] });
             }
             offset += rows.length;
             if (!rows.length) break;
@@ -126,9 +127,13 @@ async function pool(items, conc, fn) {
 // `prev` (previous snapshot, optional): symbols that fail this refresh keep
 // their last-good features instead of vanishing.
 // `log` (optional): line logger.
-export async function buildSnapshot(prev = null, log = () => {}) {
+export async function buildSnapshot(prev = null, log = () => {}, opts = {}) {
     log('scan snapshot refresh: fetching universe…');
-    const uni = await fetchUniverse();
+    const uniFull = await fetchUniverse();
+    // opts.limit: smoke-test mode — only process the first N symbols, and the
+    // caller should NOT persist the result (it's a partial snapshot).
+    const uni = opts.limit ? uniFull.slice(0, opts.limit) : uniFull;
+    if (opts.limit) log(`scan snapshot: LIMIT MODE — ${uni.length}/${uniFull.length} symbols (not for publishing)`);
     log('scan snapshot: fetching SPY bars for RS alignment…');
     const spyBars = (await nasdaqDaily('SPY')).bars;
     const spyMap = new Map();
@@ -161,7 +166,8 @@ export async function buildSnapshot(prev = null, log = () => {}) {
     let eok = 0;
     try {
         log('scan snapshot: fetching ETF universe…');
-        const etfUni = (await fetchEtfUniverse()).filter((u) => !feats[u.s]);
+        const etfUniFull = (await fetchEtfUniverse()).filter((u) => !feats[u.s]);
+        const etfUni = opts.limit ? etfUniFull.slice(0, Math.min(opts.limit, 10)) : etfUniFull;
         log(`scan snapshot: ${etfUni.length} ETFs, fetching bars…`);
         let edone = 0;
         const eresults = await pool(etfUni, 12, async (u) => {
