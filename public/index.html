@@ -47,6 +47,7 @@
   <!-- ═══ Tab strip ═══ -->
   <div id="tabstrip">
     <div id="tabs" role="tablist"></div>
+    <button id="tab-link" title="קישור סימבול בין לשוניות (לשונית מקושרת מחליפה סימבול עם כל המקושרות)" aria-pressed="false">🔗</button>
     <button id="tab-duplicate" title="שכפל לשונית פעילה">⧉</button>
     <button id="tab-add" title="לשונית חדשה (Alt+T)">+</button>
   </div>
@@ -68,6 +69,9 @@
           <option value="symbol">סימבול</option>
           <option value="change">שינוי%</option>
           <option value="volume">ווליום</option>
+          <option value="relVol">ווליום יחסי</option>
+          <option value="atr">ATR%</option>
+          <option value="hi52">קרוב לשיא 52ש׳</option>
         </select>
       </div>
       <div class="wl-tags" id="wl-tags">
@@ -78,6 +82,7 @@
         <button data-tag="green" class="tag-filter"><span class="dot green"></span></button>
         <button data-tag="blue" class="tag-filter"><span class="dot blue"></span></button>
       </div>
+      <div class="wl-cols" id="wl-cols"></div>
       <button id="wl-import" class="btn-ghost wl-import">הדבק רשימת טיקרים</button>
       <div id="wl-add">
         <input id="wl-add-input" type="text" placeholder="הוסף סימבול… (Enter)" autocomplete="off" dir="ltr">
