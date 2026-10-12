@@ -21,10 +21,10 @@ let universeCache = null;
 let universeAt = 0;
 const UNIVERSE_TTL = 24 * 60 * 60 * 1000;
 
-async function getUniverse(origin) {
+async function getUniverse(env, origin) {
     if (universeCache && Date.now() - universeAt < UNIVERSE_TTL) return universeCache;
     try {
-        const r = await fetch(new URL('/data/universe.json', origin).toString());
+        const r = await env.ASSETS.fetch(new Request(new URL('/data/universe.json', origin)));
         if (!r.ok) throw new Error(`universe asset ${r.status}`);
         const j = await r.json();
         if (!Array.isArray(j)) throw new Error('universe asset malformed');
@@ -65,7 +65,7 @@ export default {
                 store: makeStore(env),
                 getSnapshot: peekSnapshot,
                 snapshotStatus,
-                universe: await getUniverse(origin),
+                universe: await getUniverse(env, origin),
                 twelvedataKey: (env.TWELVEDATA_KEY || '').trim(),
                 startRefresh: () => {
                     // A full rebuild (4,400+ symbols) exceeds worker CPU limits;
