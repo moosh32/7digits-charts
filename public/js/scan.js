@@ -31,6 +31,7 @@ export class ScanUI {
   render() {
     const root = document.getElementById('scan-builder');
     root.innerHTML = '';
+    root.appendChild(this.libraryCard());
     const card = el('div', 'scan-card');
     card.innerHTML = '<h3>בונה סריקות</h3>';
     const presets = el('div', 'scan-presets');
@@ -39,8 +40,6 @@ export class ScanUI {
     const choices = [
       ['ווליום חריג', [{field:'relVolume',op:'gte',value:'2'}], 'relVolume'],
       ['קרוב לשיא 52ש׳', [{field:'distHigh52Pct',op:'gte',value:'-5'},{field:'perf63',op:'gte',value:'20'}], 'distHigh52Pct'],
-      ['HVE', [{field:'hve',op:'eq',value:'1'}], 'dollarVolume'],
-      ['HV1', [{field:'hv1',op:'eq',value:'1'}], 'dollarVolume'],
       ['שיא 52ש׳ חדש', [{field:'newHigh52',op:'eq',value:'1'}], 'relVolume'],
       ['גאפ עולה', [{field:'gapPct',op:'gte',value:'4'}], 'gapPct'],
       ['מומנטום נזיל', [{field:'priceVsSma20Pct',op:'gt',value:'0'},{field:'priceVsSma50Pct',op:'gt',value:'0'},{field:'perf21',op:'gte',value:'10'},{field:'atrPct',op:'gte',value:'4'}], 'perf21'],
@@ -49,7 +48,7 @@ export class ScanUI {
       const b = el('button','btn-ghost',label); b.title = 'טוען תנאים לבונה, ניתן לערוך לפני הרצה';
       b.onclick = () => { this.criteria = structuredClone([...base, ...criteria]); this.sort = {field:sort,dir:'desc'}; this.render(); }; presets.append(b);
     }
-    card.append(presets, el('p','ux-hint','תבניות כלליות לנתוני סוף יום, לא סריקת Momentum Leaders המותאמת אישית. בדוק את התנאים לפני הרצה.'));
+    card.append(presets, el('p','ux-hint','תבניות כלליות לנתוני סוף יום. הסורקים של קולמאגי ושל החדר נמצאים בספריית "סורקים מוכנים" למעלה.'));
     const rowsBox = el('div'); card.appendChild(rowsBox);
     this.criteria.forEach((c, i) => rowsBox.appendChild(this.critRow(c, i, rowsBox)));
     const add = el('button', 'btn-ghost', '+ הוסף תנאי');
@@ -106,6 +105,53 @@ export class ScanUI {
     root.appendChild(saved);
   }
 
+  // ── ready-made scanner library (the server's prebuilt scanners, grouped) ──
+  libraryCard() {
+    const card = el('div', 'scan-card scan-lib');
+    card.innerHTML = '<h3>סורקים מוכנים</h3>';
+    const tabs = el('div', 'lib-groups'), list = el('div', 'lib-list');
+    card.append(tabs, list);
+    const draw = () => {
+      tabs.innerHTML = ''; list.innerHTML = '';
+      const lib = this.lib;
+      if (!lib) { list.appendChild(el('div', 'skel', 'טוען סורקים…')); return; }
+      const counts = {};
+      for (const g of lib.groups) counts[g.id] = lib.scanners.filter((s) => s.groups.includes(g.id)).length;
+      for (const g of lib.groups) {
+        if (!counts[g.id]) continue;
+        const b = el('button', 'lib-tab' + (g.id === this.libGroup ? ' on' : ''), `${g.name} (${counts[g.id]})`);
+        b.onclick = () => { this.libGroup = g.id; draw(); };
+        tabs.appendChild(b);
+      }
+      for (const s of lib.scanners.filter((x) => x.groups.includes(this.libGroup))) {
+        const b = el('button', 'lib-chip', s.name);
+        b.title = s.desc + (s.approx ? '\n⚠ ' + s.approx : '');
+        b.onclick = () => this.runPrebuilt(s);
+        list.appendChild(b);
+      }
+    };
+    this.libGroup = this.libGroup || 'qullamaggie';
+    draw();
+    if (!this.lib && !this.libLoading) {
+      this.libLoading = true;
+      api.scannersList().then((l) => { this.lib = l; draw(); }).catch(() => { list.innerHTML = '<div class="err">טעינת הסורקים נכשלה.</div>'; }).finally(() => { this.libLoading = false; });
+    }
+    return card;
+  }
+
+  async runPrebuilt(s) {
+    this.renderResults('<div class="skel">מריץ ' + escapeHtml(s.name) + '…</div>');
+    try {
+      const o = await api.scanPrebuilt(s.id);
+      const r = {
+        prebuilt: true, count: o.count, asOf: o.asOf, desc: o.desc, approx: o.approx,
+        tickers: o.rows.map((x) => ({ symbol: x.s, name: x.name, price: x.price, changePct: x.chg, dollarVolume: x.dvolM * 1e6, relVol: x.relVol, detail: x.detail })),
+      };
+      this.lastResult = r;
+      this.renderResultsTable(r, o.name);
+    } catch (e) { this.renderResults('<div class="err">הסריקה נכשלה — נסה שוב.</div>'); }
+  }
+
   validCriteria() {
     return this.criteria
       .map((c) => ({ field: c.field, op: c.op, value: parseFloat(c.value), value2: c.op === 'between' ? parseFloat(c.value2) : undefined }))
@@ -158,6 +204,7 @@ export class ScanUI {
     const meta = el('div', 'scan-meta');
     meta.textContent = `${name ? name + ' · ' : ''}${r.count} התאמות · מוצגות ${r.tickers.length} · נתוני ${String(r.asOf || '').slice(0, 10)}`;
     card.appendChild(meta);
+    if (r.prebuilt && r.desc) card.appendChild(el('p', 'ux-hint', r.desc + (r.approx ? ' · ⚠ ' + r.approx : '')));
     if (!r.tickers.length) { card.appendChild(el('div', 'skel', 'אין תוצאות לתנאים האלה.')); box.appendChild(card); return; }
     const actions = el('div','scan-actions');
     const destination = el('select'); destination.setAttribute('aria-label','רשימת יעד');
@@ -169,7 +216,10 @@ export class ScanUI {
     csv.onclick = () => { const url = URL.createObjectURL(new Blob([resultsCsv(r.tickers)],{type:'text/csv;charset=utf-8'})); const a = el('a'); a.href = url; a.download = '7d-scan-' + String(r.asOf || '').slice(0,10) + '.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); toast('יוצאו ' + r.tickers.length + ' שורות'); };
     actions.append(destination,add,csv); card.append(actions);
     const t = document.createElement('table'); t.className = 'results';
-    t.innerHTML = `<thead><tr>
+    t.innerHTML = r.prebuilt ? `<thead><tr>
+      <th data-k="symbol">סימבול</th><th>שם</th><th data-k="price">מחיר</th>
+      <th data-k="changePct">שינוי%</th><th data-k="dollarVolume" title="דולר-ווליום ממוצע 20 ימים">$ ווליום ממוצע</th>
+      <th data-k="relVol">ווליום יחסי</th><th>פירוט</th></tr></thead><tbody></tbody>` : `<thead><tr>
       <th data-k="symbol">סימבול</th><th>שם</th><th data-k="price">מחיר</th>
       <th data-k="changePct">שינוי%</th><th data-k="dollarVolume">דולר-ווליום</th>
       <th data-k="atrPct">ATR%</th><th data-k="gapPct">גאפ%</th>
@@ -180,6 +230,12 @@ export class ScanUI {
       for (const x of rows) {
         const tr = document.createElement('tr');
         const chg = x.changePct;
+        if (r.prebuilt) {
+          tr.innerHTML = `<td dir="ltr"><b>${x.symbol}</b></td><td dir="ltr">${escapeHtml(x.name || '')}</td><td dir="ltr">${fmt(x.price)}</td>
+          <td dir="ltr" class="${chg >= 0 ? 'up' : 'dn'}">${(chg >= 0 ? '+' : '') + chg.toFixed(2)}%</td><td dir="ltr">${fmtBig(x.dollarVolume)}</td>
+          <td dir="ltr">${x.relVol}x</td><td>${escapeHtml(x.detail || '')}</td>`;
+          tr.onclick = () => this.onPick && this.onPick(x.symbol); tb.appendChild(tr); continue;
+        }
         tr.innerHTML = `<td dir="ltr"><b>${x.symbol}</b></td><td dir="ltr">${escapeHtml(x.name || '')}</td>
           <td dir="ltr">${fmt(x.price)}</td>
           <td dir="ltr" class="${chg >= 0 ? 'up' : 'dn'}">${(chg >= 0 ? '+' : '') + chg.toFixed(2)}%</td>
