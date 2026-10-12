@@ -19,9 +19,10 @@ export class TabsUI {
       b.ondragend = () => b.classList.remove('dragging');
       b.ondragover = e => { e.preventDefault(); };
       b.ondrop = e => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); const from = tabsStore.tabs.findIndex(x=>x.id===id); const to = tabsStore.tabs.findIndex(x=>x.id===t.id); if(from<0 || from===to) return; const [tab] = tabsStore.tabs.splice(from,1); tabsStore.tabs.splice(to,0,tab); tabsStore.save(); this.render(); };
-      b.title = t.symbol;
+      b.title = t.symbol + (t.linked ? ' · מקושרת' : '');
+      if (t.linked) b.classList.add('linked');
       const nm = document.createElement('span');
-      nm.className = 'tab-name'; nm.textContent = t.name; nm.dir = 'ltr';
+      nm.className = 'tab-name'; nm.textContent = (t.linked ? '🔗 ' : '') + t.name; nm.dir = 'ltr';
       b.appendChild(nm);
       const x = document.createElement('span');
       x.className = 'tab-x'; x.textContent = '✕'; x.title = 'סגור (Alt+W)';
@@ -79,15 +80,21 @@ export class TabsUI {
   syncToggles(t) {
     document.querySelectorAll('#tf-bar button').forEach((b) => b.classList.toggle('active', b.dataset.tf === t.timeframe));
     document.querySelectorAll('#ind-toggles button').forEach((b) => b.classList.toggle('on', !!(t.indicators || {})[b.dataset.ind]));
+    this.syncLinkBtn();
     const lbl = document.getElementById('search-label');
     if (lbl) lbl.textContent = t.symbol;
   }
 
   async setSymbol(symbol) {
     const t = tabsStore.active();
-    const old = t.symbol;
-    t.symbol = symbol.toUpperCase();
-    if (t.name === old) t.name = t.symbol; // keep manual renames
+    const sym = symbol.toUpperCase();
+    // symbol link: every linked tab follows the active one when it is linked
+    const group = t.linked ? tabsStore.tabs.filter((x) => x.linked) : [t];
+    for (const x of group) {
+      const old = x.symbol;
+      x.symbol = sym;
+      if (x.name === old) x.name = sym; // keep manual renames
+    }
     tabsStore.save(); this.render();
     await this.loadTab(t);
     this.onSwitch && this.onSwitch(t);
@@ -108,6 +115,19 @@ export class TabsUI {
     if (ok === false) t.indicators[key] = false;
     tabsStore.save();
     this.syncToggles(t);
+  }
+
+  toggleLink() {
+    const t = tabsStore.active();
+    t.linked = !t.linked;
+    tabsStore.save(); this.render(); this.syncLinkBtn();
+    const n = tabsStore.tabs.filter((x) => x.linked).length;
+    toast(t.linked ? (n > 1 ? `מקושרת · ${n} לשוניות מקושרות` : 'מקושרת · קשר גם לשונית נוספת כדי לסנכרן סימבול') : 'הקישור בוטל');
+  }
+  syncLinkBtn() {
+    const b = document.getElementById('tab-link'); if (!b) return;
+    const on = !!tabsStore.active()?.linked;
+    b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
   }
 
   duplicate() {
