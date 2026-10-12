@@ -87,8 +87,10 @@ jobs:
             -H "Content-Type: application/json" \
             --data '{}')
           printf '%s' "$response" | jq -e '
-            has("lastRunAt") and
-            (.checked | type == "number") and
-            (.skipped | type == "number") and
-            (.fired | type == "number")
+            select(
+              has("lastRunAt") and
+              (.checked | type == "number") and
+              (.skipped | type == "number") and
+              (.fired | type == "number")
+            ) | {lastRunAt, checked, skipped, fired}
           '
