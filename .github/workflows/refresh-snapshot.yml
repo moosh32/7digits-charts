@@ -1,0 +1,76 @@
+name: Refresh snapshot and deploy
+
+on:
+  schedule:
+    # 07:00 UTC daily, after the US close and after Nasdaq data settles
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+    inputs:
+      refresh:
+        description: 'Rebuild the snapshot before deploying (false = deploy current main as is)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-snapshot-deploy
+  cancel-in-progress: false
+
+jobs:
+  refresh-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Rebuild scan snapshot and universe
+        if: github.event_name == 'schedule' || inputs.refresh
+        run: node scripts/refresh-snapshot.mjs
+
+      - name: Install and build
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Prepare worker assets
+        run: node scripts/prepare-worker-assets.mjs
+
+      - name: Commit refreshed data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/scan-snapshot.json server/universe.json worker-assets/data
+          if git diff --cached --quiet; then
+            echo "no data changes"
+          else
+            git commit -m "chore: daily snapshot refresh $(date -u +%F)"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - name: Write wrangler config
+        env:
+          SEVEND_KV_ID: ${{ secrets.SEVEND_KV_ID }}
+        run: |
+          sed -e "s/PASTE_KV_NAMESPACE_ID_HERE/${SEVEND_KV_ID}/" worker/wrangler.example.toml > wrangler.toml
+          mkdir -p dist/data
+          cp worker-assets/data/scan-snapshot.json worker-assets/data/universe.json dist/data/
+
+      - name: Deploy worker sevend-charts
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4 deploy
+
+      - name: Health check
+        run: |
+          sleep 5
+          curl -fsS https://sevend-charts.mooshkriss2005.workers.dev/api/health
