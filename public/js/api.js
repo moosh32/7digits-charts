@@ -65,6 +65,8 @@ export const api = {
   health: () => req('/api/health'),
 
   // ── scans ──
+  scannersList: () => req('/api/scans'),
+  scanPrebuilt: (id) => req(`/api/scan/${encodeURIComponent(id)}`),
   scanRun: (criteria, sort, limit) => req('/api/scan/run', { method: 'POST', body: { criteria, sort, limit } }),
   scansList: () => req('/api/scans/custom'),
   scanSave: (name, criteria, sort) => req('/api/scans/custom', { method: 'POST', body: { name, criteria, sort } }),
