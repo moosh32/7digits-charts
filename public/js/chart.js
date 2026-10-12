@@ -46,6 +46,7 @@ export class Chart7D {
     this.pineReady = false;
     this.statusEl = document.getElementById('chart-status');
     this.onDrawingsChange = null;
+    this.cursorPrice = null;   // last crosshair price on the price pane (for Alt+A alerts)
   }
 
   status(msg, isErr = false) {
@@ -69,6 +70,12 @@ export class Chart7D {
       this.chart.on('drawing:removed', () => this.onDrawingsChange && this.onDrawingsChange());
       this.chart.on('drawing:changed', () => this.onDrawingsChange && this.onDrawingsChange());
     } catch { /* event names may differ; persistence also runs on tab switch */ }
+    try {
+      const rc = this.chart.rendererControl || this.chart;
+      rc.onCrosshairMove((e) => {
+        this.cursorPrice = (e && e.price != null && e.paneKind !== 'study') ? e.price : this.cursorPrice;
+      });
+    } catch { /* crosshair seam unavailable - Alt+A falls back to manual entry */ }
     this.chart.resize();
   }
 
