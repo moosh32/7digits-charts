@@ -56,6 +56,7 @@ export class WatchlistUI {
     const box = document.getElementById('wl-cols');
     if (!box) return;
     box.innerHTML = '<span class="wl-cols-lbl">עמודות:</span>';
+    document.getElementById('watchlist-panel').classList.toggle('wl-wide', this.cols.length >= 3);
     for (const c of COLUMNS) {
       const b = document.createElement('button');
       b.className = 'col-chip' + (this.cols.includes(c.k) ? ' on' : '');
