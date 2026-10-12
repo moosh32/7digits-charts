@@ -71,6 +71,7 @@ async function boot() {
 
   const tabs = new TabsUI(c7, api, onTabSwitch);
   tabs.render();
+  $('tab-link').onclick = () => tabs.toggleLink();
   $('tab-duplicate').onclick = () => tabs.duplicate();
   tabs.syncToggles(t0);
   c7.onDrawingsChange = () => tabs.persistDrawings();
