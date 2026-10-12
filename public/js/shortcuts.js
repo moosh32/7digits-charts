@@ -8,6 +8,7 @@ export function wireShortcuts(ctx) {
     if (e.key === 'Escape') {
       if (ctx.search.isOpen) { ctx.search.close(); return; }
       if (!document.getElementById('pine-modal').hidden) { ctx.pine.close(); return; }
+      if (ctx.alerts.isOpen) { ctx.alerts.close(); return; }
       if (!help.hidden) { help.hidden = true; return; }
       ctx.chart.deselect();
       ctx.chart.armTool('select');
@@ -22,7 +23,8 @@ export function wireShortcuts(ctx) {
       const tool = {t:'trendline',h:'hline',f:'fibretracement'}[key];
       if(tool) { e.preventDefault(); ctx.chart.armTool(tool); return; }
     }
-    if (e.altKey && e.key.toLowerCase() === 't') { e.preventDefault(); ctx.tabs.add(); }
+    if (e.altKey && (e.code === 'KeyA' || e.key.toLowerCase() === 'a')) { e.preventDefault(); ctx.alerts.openAtCursor(); }
+    else if (e.altKey && e.key.toLowerCase() === 't') { e.preventDefault(); ctx.tabs.add(); }
     else if (e.altKey && e.key.toLowerCase() === 'w') { e.preventDefault(); ctx.tabs.close(ctx.activeTabId()); }
     else if (e.altKey && e.key === '[') { e.preventDefault(); ctx.tabs.step(-1); }
     else if (e.altKey && e.key === ']') { e.preventDefault(); ctx.tabs.step(1); }
