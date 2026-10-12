@@ -5,12 +5,23 @@ import { toast } from './tabs.js';
 import { dialog, parseTickers } from './ux.js';
 
 const COLORS = [null, 'red', 'orange', 'yellow', 'green', 'blue'];
+// user-toggleable watchlist columns (persisted in localStorage)
+const COLS_KEY = '7d.wl.cols.v1';
+const COLUMNS = [
+  { k: 'chg', label: 'שינוי%', title: 'שינוי יומי %' },
+  { k: 'relVol', label: 'RVol', title: 'ווליום יחסי (מול ממוצע 20)' },
+  { k: 'atr', label: 'ATR%', title: 'ATR 14 באחוזים' },
+  { k: 'hi52', label: '52wH', title: 'מרחק משיא 52 שבועות %' },
+];
+const loadCols = () => { try { const v = JSON.parse(localStorage.getItem(COLS_KEY)); if (Array.isArray(v)) return v.filter((k) => COLUMNS.some((c) => c.k === k)); } catch { /* */ } return ['chg']; };
 const COLOR_HE = { red: 'אדום', orange: 'כתום', yellow: 'צהוב', green: 'ירוק', blue: 'כחול' };
 
 export class WatchlistUI {
   constructor(onPick) {
     this.onPick = onPick;
     this.quotes = {};
+    this.stats = {};
+    this.cols = loadCols();
     this.textFilter = '';
     this.tagFilter = '';
     this.sort = 'manual';
@@ -37,7 +48,35 @@ export class WatchlistUI {
       b.classList.toggle('active', (b.dataset.tag || '') === this.tagFilter);
       b.onclick = () => { this.tagFilter = b.dataset.tag || ''; this.render(); };
     });
+    this.renderColPicker();
     this.renderItems();
+  }
+
+  renderColPicker() {
+    const box = document.getElementById('wl-cols');
+    if (!box) return;
+    box.innerHTML = '<span class="wl-cols-lbl">עמודות:</span>';
+    for (const c of COLUMNS) {
+      const b = document.createElement('button');
+      b.className = 'col-chip' + (this.cols.includes(c.k) ? ' on' : '');
+      b.textContent = c.label; b.title = c.title; b.setAttribute('aria-pressed', this.cols.includes(c.k));
+      b.onclick = () => {
+        this.cols = this.cols.includes(c.k) ? this.cols.filter((x) => x !== c.k) : COLUMNS.map((x) => x.k).filter((k) => k === c.k || this.cols.includes(k));
+        try { localStorage.setItem(COLS_KEY, JSON.stringify(this.cols)); } catch { /* */ }
+        this.renderColPicker(); this.renderItems();
+      };
+      box.appendChild(b);
+    }
+  }
+
+  cell(k, item) {
+    const q = this.quotes[item.symbol], st = this.stats[item.symbol];
+    const sg = (v, d = 2, suf = '%') => (v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(d) + suf);
+    if (k === 'chg') { const v = q?.changePct ?? st?.changePct; return `<span class="c chg ${v == null ? '' : v >= 0 ? 'up' : 'dn'}" dir="ltr">${sg(v)}</span>`; }
+    if (k === 'relVol') { const v = st?.relVol; return `<span class="c ${v >= 2 ? 'up' : ''}" dir="ltr">${v == null ? '—' : v.toFixed(1) + 'x'}</span>`; }
+    if (k === 'atr') { const v = st?.atrPct; return `<span class="c" dir="ltr">${v == null ? '—' : v.toFixed(1) + '%'}</span>`; }
+    if (k === 'hi52') { const v = st?.distHigh52Pct; return `<span class="c ${st?.newHigh52 ? 'up nh' : ''}" dir="ltr" title="${st?.newHigh52 ? 'שיא 52 שבועות חדש' : ''}">${v == null ? '—' : v.toFixed(1) + '%'}</span>`; }
+    return '';
   }
 
   rows() {
@@ -49,6 +88,9 @@ export class WatchlistUI {
     const q = this.quotes;
     if (this.sort === 'symbol') items.sort((a, b) => a.symbol.localeCompare(b.symbol));
     else if (this.sort === 'change') items.sort((a, b) => (q[b.symbol]?.changePct ?? -1e9) - (q[a.symbol]?.changePct ?? -1e9));
+    else if (this.sort === 'relVol') items.sort((a, b) => (this.stats[b.symbol]?.relVol ?? -1) - (this.stats[a.symbol]?.relVol ?? -1));
+    else if (this.sort === 'atr') items.sort((a, b) => (this.stats[b.symbol]?.atrPct ?? -1) - (this.stats[a.symbol]?.atrPct ?? -1));
+    else if (this.sort === 'hi52') items.sort((a, b) => (this.stats[b.symbol]?.distHigh52Pct ?? -1e9) - (this.stats[a.symbol]?.distHigh52Pct ?? -1e9));
     else if (this.sort === 'volume') items.sort((a, b) => (q[b.symbol]?.volume ?? -1) - (q[a.symbol]?.volume ?? -1));
     return items;
   }
@@ -65,11 +107,10 @@ export class WatchlistUI {
       const li = document.createElement('li');
       li.className = 'wl-row';
       const q = this.quotes[item.symbol];
-      const chg = q?.changePct;
       li.innerHTML = `
         <span class="sym" dir="ltr"><span class="dot ${item.color || ''}" style="${item.color ? '' : 'visibility:hidden'}"></span>${item.symbol}</span>
         <span class="px">${q ? q.price.toFixed(2) : '—'}</span>
-        <span class="chg ${chg == null ? '' : chg >= 0 ? 'up' : 'dn'}" dir="ltr">${chg == null ? '' : (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%'}</span>
+        ${this.cols.map((k) => this.cell(k, item)).join('')}
         <button class="note-btn" title="הערה לטיקר">✎</button><button class="rm" title="הסר">✕</button>`;
       li.title = item.note || (item.color ? 'תג: ' + COLOR_HE[item.color] : item.symbol);
       if (item.note) { const n = document.createElement('span'); n.className = 'wl-note'; n.textContent = item.note; li.append(n); }
@@ -88,7 +129,9 @@ export class WatchlistUI {
     const l = this.active();
     if (!l || !l.items.length) return;
     try {
-      this.quotes = await api.quotes(l.items.map((i) => i.symbol));
+      const syms = l.items.map((i) => i.symbol);
+      const [qs, st] = await Promise.all([api.quotes(syms), api.wlStats(syms).catch(() => ({}))]);
+      this.quotes = qs; this.stats = st || {};
       this.renderItems();
     } catch { /* keep last */ }
   }
@@ -136,7 +179,10 @@ export class WatchlistUI {
     if (l.items.length >= 500) { toast('הרשימה מלאה'); return; }
     l.items.push({ symbol, color: null });
     await wlStore.save();
-    try { this.quotes = { ...this.quotes, ...(await api.quotes([symbol])) }; } catch { /* */ }
+    try {
+      const [qs, st] = await Promise.all([api.quotes([symbol]), api.wlStats([symbol]).catch(() => ({}))]);
+      this.quotes = { ...this.quotes, ...qs }; this.stats = { ...this.stats, ...(st || {}) };
+    } catch { /* */ }
     this.renderItems();
   }
 
