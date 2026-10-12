@@ -28,10 +28,10 @@ async function fromKV(env) {
     }
 }
 
-async function fromAsset(origin) {
-    const r = await fetch(new URL('/data/scan-snapshot.json', origin).toString(), {
+async function fromAsset(env, origin) {
+    const r = await env.ASSETS.fetch(new Request(new URL('/data/scan-snapshot.json', origin), {
         headers: { 'User-Agent': 'sevend-worker/1.0' },
-    });
+    }));
     if (!r.ok) throw new Error(`snapshot asset ${r.status}`);
     const snap = await r.json();
     if (!snap || !snap.feats) throw new Error('snapshot asset malformed');
@@ -50,7 +50,7 @@ export async function loadSnapshot(env, origin) {
         const kvSnap = await fromKV(env);
         if (kvSnap) { adopt(kvSnap); return memSnap; }
     }
-    const assetSnap = await fromAsset(origin);
+    const assetSnap = await fromAsset(env, origin);
     adopt(assetSnap);
     return memSnap;
 }
