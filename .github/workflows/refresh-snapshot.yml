@@ -74,3 +74,21 @@ jobs:
         run: |
           sleep 5
           curl -fsS https://sevend-charts.mooshkriss2005.workers.dev/api/health
+
+      - name: Evaluate EOD alerts
+        env:
+          API_SECRET: ${{ secrets.SEVEND_API_SECRET }}
+        run: |
+          test -n "$API_SECRET"
+          echo "::add-mask::$API_SECRET"
+          response=$(curl -fsS -X POST \
+            https://sevend-charts.mooshkriss2005.workers.dev/api/alerts/evaluate \
+            -H "Authorization: Bearer ${API_SECRET}" \
+            -H "Content-Type: application/json" \
+            --data '{}')
+          printf '%s' "$response" | jq -e '
+            has("lastRunAt") and
+            (.checked | type == "number") and
+            (.skipped | type == "number") and
+            (.fired | type == "number")
+          '
