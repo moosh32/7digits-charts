@@ -5,7 +5,7 @@ export function dialog(title, build) {
   const head = document.createElement('div'); head.className = 'modal-head';
   const h = document.createElement('h3'); h.textContent = title;
   const close = document.createElement('button'); close.className = 'icon-btn'; close.textContent = '✕'; close.title = 'סגור';
-  const dismiss = () => { overlay.remove(); document.removeEventListener('keydown', escape); };
+  const dismiss = () => { overlay.remove(); document.removeEventListener('keydown', escape, true); };
   const escape = e => { if(e.key === 'Escape') { e.stopImmediatePropagation(); dismiss(); } };
   close.onclick = dismiss; overlay.onclick = e => { if(e.target === overlay) dismiss(); };
   document.addEventListener('keydown', escape, true);
