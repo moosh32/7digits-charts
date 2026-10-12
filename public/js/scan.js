@@ -11,6 +11,7 @@ const FIELDS = [
   ['perf5', 'ביצוע 5 ימים %'], ['perf21', 'ביצוע 21 ימים %'], ['perf63', 'ביצוע 63 ימים %'],
   ['rs63vsSpy', 'RS מול SPY (63d)'], ['marketCap', 'שווי שוק'], ['avgVolume20', 'ווליום ממוצע 20'],
   ['sma20', 'SMA20'], ['sma50', 'SMA50'], ['sma200', 'SMA200'],
+  ['distHigh52Pct', 'מרחק משיא 52 שבועות %'], ['pctAboveLow52', 'מעל שפל 52 שבועות %'], ['newHigh52', 'שיא 52 שבועות חדש (1=כן)'],
 ];
 const OPS = [
   ['gt', '>'], ['gte', '≥'], ['lt', '<'], ['lte', '≤'], ['eq', '='], ['between', 'בין'],
@@ -36,6 +37,8 @@ export class ScanUI {
     const base = [{field:'price',op:'gt',value:'5'},{field:'avgDollarVolume20',op:'gte',value:'25000000'}];
     const choices = [
       ['ווליום חריג', [{field:'relVolume',op:'gte',value:'2'}], 'relVolume'],
+      ['קרוב לשיא 52ש׳', [{field:'distHigh52Pct',op:'gte',value:'-5'},{field:'perf63',op:'gte',value:'20'}], 'distHigh52Pct'],
+      ['שיא 52ש׳ חדש', [{field:'newHigh52',op:'eq',value:'1'}], 'relVolume'],
       ['גאפ עולה', [{field:'gapPct',op:'gte',value:'4'}], 'gapPct'],
       ['מומנטום נזיל', [{field:'priceVsSma20Pct',op:'gt',value:'0'},{field:'priceVsSma50Pct',op:'gt',value:'0'},{field:'perf21',op:'gte',value:'10'},{field:'atrPct',op:'gte',value:'4'}], 'perf21'],
     ];
@@ -166,7 +169,8 @@ export class ScanUI {
     t.innerHTML = `<thead><tr>
       <th data-k="symbol">סימבול</th><th>שם</th><th data-k="price">מחיר</th>
       <th data-k="changePct">שינוי%</th><th data-k="dollarVolume">דולר-ווליום</th>
-      <th data-k="atrPct">ATR%</th><th data-k="gapPct">גאפ%</th></tr></thead><tbody></tbody>`;
+      <th data-k="atrPct">ATR%</th><th data-k="gapPct">גאפ%</th>
+      <th data-k="distHigh52Pct" title="מרחק ממחיר השיא ב-52 שבועות">מרחק משיא 52ש׳</th></tr></thead><tbody></tbody>`;
     const tb = t.querySelector('tbody');
     const draw = (rows) => {
       tb.innerHTML = '';
@@ -178,7 +182,8 @@ export class ScanUI {
           <td dir="ltr" class="${chg >= 0 ? 'up' : 'dn'}">${(chg >= 0 ? '+' : '') + chg.toFixed(2)}%</td>
           <td dir="ltr">${fmtBig(x.dollarVolume)}</td>
           <td dir="ltr">${x.atrPct?.toFixed(2)}</td>
-          <td dir="ltr" class="${x.gapPct >= 0 ? 'up' : 'dn'}">${(x.gapPct >= 0 ? '+' : '') + x.gapPct?.toFixed(2)}%</td>`;
+          <td dir="ltr" class="${x.gapPct >= 0 ? 'up' : 'dn'}">${(x.gapPct >= 0 ? '+' : '') + x.gapPct?.toFixed(2)}%</td>
+          <td dir="ltr" class="${x.newHigh52 ? 'up' : ''}">${x.distHigh52Pct == null ? '—' : x.distHigh52Pct.toFixed(1) + '%'}${x.newHigh52 ? ' <span class="nh-badge" title="שיא 52 שבועות חדש">NH</span>' : ''}</td>`;
         tr.onclick = () => this.onPick && this.onPick(x.symbol);
         tb.appendChild(tr);
       }
