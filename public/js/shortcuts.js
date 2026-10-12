@@ -13,7 +13,15 @@ export function wireShortcuts(ctx) {
       ctx.chart.armTool('select');
       return;
     }
-    if (inInput) return;
+    if (inInput || document.activeElement?.isContentEditable) return;
+    if (document.querySelector('.modal:not([hidden])') || !document.getElementById('scan-view').hidden) return;
+    if (!e.altKey && !e.ctrlKey && !e.metaKey) {
+      const key = e.key.toLowerCase();
+      const tf = {d:'D',w:'W',m:'M'}[key];
+      if(tf) { e.preventDefault(); ctx.tabs.setTimeframe(tf); return; }
+      const tool = {t:'trendline',h:'hline',f:'fibretracement'}[key];
+      if(tool) { e.preventDefault(); ctx.chart.armTool(tool); return; }
+    }
     if (e.altKey && e.key.toLowerCase() === 't') { e.preventDefault(); ctx.tabs.add(); }
     else if (e.altKey && e.key.toLowerCase() === 'w') { e.preventDefault(); ctx.tabs.close(ctx.activeTabId()); }
     else if (e.altKey && e.key === '[') { e.preventDefault(); ctx.tabs.step(-1); }
