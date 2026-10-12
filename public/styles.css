@@ -317,3 +317,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .wl-row .c.nh {font-weight:700}
 .wl-row .sym {min-width:0}
 .nh-badge {font-size:9px;font-weight:700;color:var(--up);border:1px solid var(--up);border-radius:3px;padding:0 3px;margin-inline-start:3px}
+
+/* scanner library */
+.lib-groups {display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.lib-tab {background:none;border:1px solid var(--border);border-radius:14px;color:var(--muted);cursor:pointer;font-size:12px;padding:3px 11px}
+.lib-tab.on {border-color:var(--gold-dim);color:var(--gold);background:var(--panel2)}
+.lib-list {display:flex;flex-wrap:wrap;gap:6px;max-height:132px;overflow-y:auto}
+.lib-chip {background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;font-size:12px;padding:4px 9px}
+.lib-chip:hover {border-color:var(--gold-dim);color:var(--gold)}
