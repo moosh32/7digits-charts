@@ -325,3 +325,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .lib-list {display:flex;flex-wrap:wrap;gap:6px;max-height:132px;overflow-y:auto}
 .lib-chip {background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;font-size:12px;padding:4px 9px}
 .lib-chip:hover {border-color:var(--gold-dim);color:var(--gold)}
+
+/* watchlist rows: note/remove buttons overlay on hover so columns never wrap */
+.wl-row {position:relative;flex-wrap:wrap;gap:6px}
+.wl-row .px {margin-inline-start:auto;min-width:46px;text-align:end}
+.wl-row .note-btn, .wl-row .rm {position:absolute;inset-inline-end:2px;top:6px;background:var(--panel2);opacity:0;padding:2px 5px;line-height:1}
+.wl-row .note-btn {inset-inline-end:22px}
+.wl-row:hover .note-btn, .wl-row:hover .rm {opacity:1}
+@media (hover:none) { .wl-row .note-btn, .wl-row .rm {position:static;opacity:1;background:none} }
