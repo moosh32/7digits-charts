@@ -6,6 +6,7 @@ import { TabsUI, toast } from './tabs.js';
 import { WatchlistUI, wireWatchlistButtons } from './watchlist.js';
 import { ScanUI, showScanView } from './scan.js';
 import { SearchUI } from './search.js';
+import { AlertsUI } from './alerts.js';
 import { PineUI } from './pine.js';
 import { wireShortcuts } from './shortcuts.js';
 
@@ -96,6 +97,11 @@ async function boot() {
     (sym) => { showScanView(false); c7.resize(); tabs.setSymbol(sym); });
   pine.wire();
 
+  // ── EOD alerts ──
+  const alerts = new AlertsUI(() => tabsStore.active().symbol, () => c7.cursorPrice);
+  alerts.onPick = (sym) => { showScanView(false); c7.resize(); tabs.setSymbol(sym); };
+  alerts.wire();
+
   // ── timeframe + indicator toggles ──
   document.querySelectorAll('#tf-bar button').forEach((b) => {
     b.onclick = () => { showScanView(false); c7.resize(); tabs.setTimeframe(b.dataset.tf); };
@@ -123,7 +129,7 @@ async function boot() {
   setInterval(refreshQuote, 60000);
 
   // ── shortcuts ──
-  wireShortcuts({ search, pine, chart: c7, tabs, activeTabId: () => tabsStore.activeId });
+  wireShortcuts({ search, pine, alerts, chart: c7, tabs, activeTabId: () => tabsStore.activeId });
 
   // ── resize / unload ──
   window.addEventListener('resize', () => c7.resize());
@@ -134,7 +140,7 @@ async function boot() {
   tick(); setInterval(tick, 1000);
 
   console.info('[7d] ready. server=%s', serverOk);
-  window.__7d = { c7, tabs, wl, scan, search, pine, api, stores: { tabsStore, wlStore, scanStore } };
+  window.__7d = { alerts, c7, tabs, wl, scan, search, pine, api, stores: { tabsStore, wlStore, scanStore } };
 }
 
 document.addEventListener('DOMContentLoaded', boot);

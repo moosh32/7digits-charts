@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { makeStore } from '../worker/lib/store.mjs';
 import { requireApiAuth } from '../worker/lib/auth.mjs';
 import * as H from '../worker/lib/handlers.mjs';
+import * as A from '../worker/lib/alerts.mjs';
 import { getSnapshot, refreshSnapshot } from './scans/snapshot.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -67,6 +68,15 @@ router.delete('/api/watchlists/:id', authMw, async (req, res) => send(res, await
 // ----- tabs (protected) -----
 router.get('/api/tabs', authMw, async (req, res) => send(res, await H.hTabsGet(deps)));
 router.put('/api/tabs', authMw, async (req, res) => send(res, await H.hTabsPut(req.body, deps)));
+
+// ----- EOD alerts (protected) -----
+router.get('/api/alerts', authMw, async (req, res) => send(res, await A.hAlertsList(deps)));
+router.post('/api/alerts', authMw, async (req, res) => send(res, await A.hAlertsCreate(req.body, deps)));
+router.get('/api/alerts/history', authMw, async (req, res) => send(res, await A.hAlertsHistory(deps)));
+router.delete('/api/alerts/history', authMw, async (req, res) => send(res, await A.hAlertsHistoryClear(deps)));
+router.post('/api/alerts/evaluate', authMw, async (req, res) => send(res, await A.hAlertsEvaluate(req.body || {}, deps)));
+router.put('/api/alerts/:id', authMw, async (req, res) => send(res, await A.hAlertsUpdate(req.params.id, req.body, deps)));
+router.delete('/api/alerts/:id', authMw, async (req, res) => send(res, await A.hAlertsDelete(req.params.id, deps)));
 
 // ----- snapshot refresh (protected) -----
 router.post('/api/snapshot/refresh', authMw, async (req, res) => send(res, await H.hSnapshotRefresh(deps)));

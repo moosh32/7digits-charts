@@ -215,7 +215,7 @@ export function computeFeatures(sym, name, bars, meta = {}) {
         mvol: rets.length > 2 ? std(rets) * 100 : null,
         wvol: (() => { const w = rets.slice(-5); return w.length > 2 ? std(w) * 100 : null; })(),
         sma20: sma(C, 20), sma50: sma(C, 50), sma200: sma(C, 200),
-        ema5: ema(C, 5), ema6: ema(C, 6), ema7: ema(C, 7), ema20: ema(C, 20), ema60: ema(C, 60), ema65: ema(C, 65),
+        ema5: ema(C, 5), ema6: ema(C, 6), ema7: ema(C, 7), ema20: ema(C, 20), ema50: ema(C, 50), ema60: ema(C, 60), ema65: ema(C, 65),
         hi5: hi(H, 5), lo5: lo(L, 5), hi10: hi(H, 10), lo10: lo(L, 10),
         hi20: hi(H, 20), lo20: lo(L, 20), hi30: hi(H, 30), lo30: lo(L, 30),
         hi60: hi(H, 60), lo60: lo(L, 60), hi90: hi(H, 90), lo90: lo(L, 90),

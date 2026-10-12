@@ -80,4 +80,13 @@ export const api = {
   // ── tabs ──
   tabsGet: () => req('/api/tabs'),
   tabsPut: (tabs, activeId) => req('/api/tabs', { method: 'PUT', body: { tabs, activeId } }),
+
+  // ── EOD alerts ──
+  alertsList: () => req('/api/alerts'),
+  alertCreate: (body) => req('/api/alerts', { method: 'POST', body }),
+  alertUpdate: (id, patch) => req(`/api/alerts/${id}`, { method: 'PUT', body: patch }),
+  alertDelete: (id) => req(`/api/alerts/${id}`, { method: 'DELETE' }),
+  alertsHistory: () => req('/api/alerts/history'),
+  alertsHistoryClear: () => req('/api/alerts/history', { method: 'DELETE' }),
+  alertsEvaluate: (force = false) => req('/api/alerts/evaluate', { method: 'POST', body: { force } }),
 };
