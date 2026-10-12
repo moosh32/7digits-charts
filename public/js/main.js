@@ -1,7 +1,7 @@
 // main.js — bootstrap for the 7D charting platform.
 import { api } from './api.js';
 import { tabsStore, wlStore, scanStore } from './state.js';
-import { Chart7D } from './chart.js';
+import { Layout7D } from './chart.js';
 import { TabsUI, toast } from './tabs.js';
 import { WatchlistUI, wireWatchlistButtons } from './watchlist.js';
 import { ScanUI, showScanView } from './scan.js';
@@ -59,17 +59,14 @@ async function boot() {
   await scanStore.load();
 
   // ── chart ──
-  const c7 = new Chart7D($('chart'));
+  const c7 = new Layout7D($('chart'), api, tabsStore);
   const t0 = tabsStore.active();
-  c7.status('טוען ' + t0.symbol + '…');
-  const j0 = await api.bars(t0.symbol, t0.timeframe).catch((e) => ({ bars: [], count: 0, error: true }));
-  if (j0.error) c7.status('שגיאת נתונים — בדוק חיבור', true);
-  await c7.create(t0.symbol, t0.timeframe, j0.bars || []);
-  c7.restoreDrawings(t0.drawings);
-  for (const [k, on] of Object.entries(t0.indicators || {})) if (on) await c7.setIndicator(k, true);
-  c7.status(`${t0.symbol} · ${t0.timeframe} · ${j0.count ?? 0} נרות`);
+  await c7.loadTab(t0);
 
   const tabs = new TabsUI(c7, api, onTabSwitch);
+  c7.onSelect = (t) => { tabs.syncToggles(t); tabs.render(); onTabSwitch(); };
+  c7.onSymbol = (sym) => tabs.setSymbol(sym);
+  c7.onTimeframe = (tf) => tabs.setTimeframe(tf);
   tabs.render();
   $('tab-link').onclick = () => tabs.toggleLink();
   $('tab-duplicate').onclick = () => tabs.duplicate();
