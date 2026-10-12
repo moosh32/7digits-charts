@@ -333,3 +333,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .wl-row .note-btn {inset-inline-end:22px}
 .wl-row:hover .note-btn, .wl-row:hover .rm {opacity:1}
 @media (hover:none) { .wl-row .note-btn, .wl-row .rm {position:static;opacity:1;background:none} }
+
+#watchlist-panel.wl-wide {flex-basis:336px;width:336px}
+@media (max-width: 1280px) { :root {--wl-w: 280px} #watchlist-panel.wl-wide {width:336px;max-width:90vw} }
