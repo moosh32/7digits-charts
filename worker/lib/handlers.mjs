@@ -8,7 +8,7 @@ import {
 } from './market.mjs';
 import { listScanners, runScanner } from '../../server/scans/definitions.mjs';
 import {
-    validateScanBody, runCustomScan, ScanValidationError,
+    validateScanBody, runCustomScan, watchlistStats, ScanValidationError,
     listCustomScans, saveCustomScan, updateCustomScan, deleteCustomScan, getCustomScan,
 } from './custom-scan.mjs';
 
@@ -92,6 +92,13 @@ export async function hQuotes(params, deps) {
         } catch { /* skip failed symbols */ }
     }));
     return { status: 200, body: out };
+}
+
+// Daily snapshot stats for watchlist columns (relVol, ATR%, distance from 52wk high).
+export function hWatchlistStats(params, deps) {
+    const symbols = String(params.symbols || '').toUpperCase().split(',')
+        .map((s) => sanitizeSymbol(s)).filter(Boolean).slice(0, 100);
+    return { status: 200, body: watchlistStats(deps.getSnapshot(), symbols) };
 }
 
 // ---------- prebuilt scanners (public; existing shapes) ----------
