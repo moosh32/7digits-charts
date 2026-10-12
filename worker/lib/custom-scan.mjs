@@ -33,6 +33,11 @@ const FIELDS = {
     pctAboveLow52: (f) => pctAbove(f.price, f.lo52),
     // newHigh52: 1 when today's bar set the 52wk high (day high == 52wk high), else 0. Use with eq 1.
     newHigh52: (f) => (f.hi52 > 0 && f.dayHigh != null) ? (f.dayHigh >= f.hi52 ? 1 : 0) : null,
+    // Volume extremes (Qullamaggie). hve: today's volume is the highest in the snapshot's whole
+    // history (Nasdaq daily bars since 2000-01-01, or since IPO; first IPO bar excluded; >=60 bars).
+    // hv1: highest volume of the last 252 trading days. 1 = yes, 0 = no. Use with eq 1.
+    hve: (f) => (f.vol != null && f.volMaxAll != null && f.bars >= 60) ? (f.vol >= f.volMaxAll ? 1 : 0) : null,
+    hv1: (f) => (f.vol != null && f.volMax252 != null) ? (f.vol >= f.volMax252 ? 1 : 0) : null,
     marketCap: (f) => f.mcap,
     avgVolume20: (f) => f.avgV20,
 };
