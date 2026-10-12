@@ -7,8 +7,8 @@ unusual volume (relVol >= N), EMA20/EMA50 touch (day low <= EMA <= day high).
 `ema50` is added to the snapshot by this change; EMA50 alerts are skipped (not fired) until the next refresh includes it.
 
 Evaluation
-- Cron (worker `scheduled`, `[triggers]` in `worker/wrangler.example.toml`): 07:30 UTC and 09:30 UTC daily.
-  The 07:00 UTC refresh workflow commits the new snapshot and deploys the worker with it; the cron loads that snapshot and evaluates.
+- The daily GitHub Actions refresh workflow commits the new snapshot, deploys the worker, runs the health check, then calls `POST /api/alerts/evaluate` with Bearer auth. The response is validated and recorded as the evaluation state. This runs on the daily 07:00 UTC schedule and when manually dispatched.
+- Worker cron triggers are not used for alerts because the Cloudflare account is at its Free-plan limit.
 - An alert is checked at most once per snapshot `asOf`, and only against a snapshot newer than the one it was created on.
 - One-shot alerts become `fired`; `repeat: daily` alerts stay active.
 - Manual: `POST /api/alerts/evaluate` (Bearer). Body `{"force": true}` ignores the guards and tags events `manual`.
