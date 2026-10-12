@@ -13,7 +13,12 @@ export class TabsUI {
     for (const t of tabsStore.tabs) {
       const b = document.createElement('button');
       b.className = 'tab' + (t.id === tabsStore.activeId ? ' active' : '');
-      b.setAttribute('role', 'tab');
+      b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', t.id === tabsStore.activeId);
+      b.draggable = true;
+      b.ondragstart = e => { e.dataTransfer.setData('text/plain',t.id); b.classList.add('dragging'); };
+      b.ondragend = () => b.classList.remove('dragging');
+      b.ondragover = e => { e.preventDefault(); };
+      b.ondrop = e => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); const from = tabsStore.tabs.findIndex(x=>x.id===id); const to = tabsStore.tabs.findIndex(x=>x.id===t.id); if(from<0 || from===to) return; const [tab] = tabsStore.tabs.splice(from,1); tabsStore.tabs.splice(to,0,tab); tabsStore.save(); this.render(); };
       b.title = t.symbol;
       const nm = document.createElement('span');
       nm.className = 'tab-name'; nm.textContent = t.name; nm.dir = 'ltr';
@@ -105,7 +110,14 @@ export class TabsUI {
     this.syncToggles(t);
   }
 
+  duplicate() {
+    this.persistDrawings(); const source = structuredClone(tabsStore.active());
+    const t = tabsStore.add(source.symbol); if(!t) { toast('מקסימום 30 לשוניות'); return; }
+    Object.assign(t, source, {id:t.id, name:source.name + ' עותק'}); tabsStore.save(); this.render(); this.activate(t.id,{force:true});
+  }
+
   add(symbol) {
+    this.persistDrawings();
     const t = tabsStore.add(symbol || 'NVDA');
     if (!t) { toast('מקסימום 30 לשוניות'); return; }
     this.render();

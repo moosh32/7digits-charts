@@ -263,3 +263,20 @@ table.results .up { color: var(--up); } table.results .dn { color: var(--down); 
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-thumb { background: #2a3342; border-radius: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* UI round 1: keep the existing design; improve the evening scan flow. */
+.scan-presets {display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}
+.ux-hint {color:var(--muted);font-size:12px;line-height:1.6;margin:8px 12px}
+.ux-text {display:block;width:calc(100% - 28px);margin:14px;min-height:110px;resize:vertical;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:13px inherit}
+.wl-import {margin:4px 8px 8px;flex-shrink:0}
+.wl-row {flex-wrap:wrap;gap:4px}
+.wl-row .note-btn {background:none;border:0;color:var(--muted);cursor:pointer;padding:4px}
+.wl-note {flex:0 0 100%;font-size:11px;line-height:1.5;color:var(--muted);white-space:normal;overflow-wrap:anywhere;padding-inline-start:12px}
+#tab-duplicate {background:none;border:0;color:var(--muted);font-size:19px;padding:4px 10px;cursor:pointer}
+.tab.dragging {opacity:.45}
+.scan-actions {gap:8px;align-items:center}
+.results th {text-align:start;white-space:nowrap}
+.results td {font-variant-numeric:tabular-nums}
+.results td:nth-child(2) {max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button:disabled {opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible {outline:2px solid var(--gold);outline-offset:2px}

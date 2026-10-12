@@ -2,6 +2,7 @@
 import { api } from './api.js';
 import { wlStore } from './state.js';
 import { toast } from './tabs.js';
+import { dialog, parseTickers } from './ux.js';
 
 const COLORS = [null, 'red', 'orange', 'yellow', 'green', 'blue'];
 const COLOR_HE = { red: 'אדום', orange: 'כתום', yellow: 'צהוב', green: 'ירוק', blue: 'כחול' };
@@ -69,8 +70,10 @@ export class WatchlistUI {
         <span class="sym" dir="ltr"><span class="dot ${item.color || ''}" style="${item.color ? '' : 'visibility:hidden'}"></span>${item.symbol}</span>
         <span class="px">${q ? q.price.toFixed(2) : '—'}</span>
         <span class="chg ${chg == null ? '' : chg >= 0 ? 'up' : 'dn'}" dir="ltr">${chg == null ? '' : (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%'}</span>
-        <button class="rm" title="הסר">✕</button>`;
-      li.title = item.color ? 'תג: ' + COLOR_HE[item.color] : item.symbol;
+        <button class="note-btn" title="הערה לטיקר">✎</button><button class="rm" title="הסר">✕</button>`;
+      li.title = item.note || (item.color ? 'תג: ' + COLOR_HE[item.color] : item.symbol);
+      if (item.note) { const n = document.createElement('span'); n.className = 'wl-note'; n.textContent = item.note; li.append(n); }
+      li.querySelector('.note-btn').onclick = e => { e.stopPropagation(); this.editNote(item); };
       li.onclick = () => {
         if (this.onPick) this.onPick(item.symbol);
         if (isNarrowWatchlist()) closeWatchlistDrawer(); // drawer out of the way after picking
@@ -88,6 +91,40 @@ export class WatchlistUI {
       this.quotes = await api.quotes(l.items.map((i) => i.symbol));
       this.renderItems();
     } catch { /* keep last */ }
+  }
+
+  editNote(item) {
+    dialog('הערה ל-' + item.symbol, (box, close) => {
+      const input = document.createElement('textarea'); input.className = 'ux-text'; input.maxLength = 500; input.dir = 'auto'; input.value = item.note || ''; input.placeholder = 'רמת כניסה, תנאי לפריצה, מה לבדוק…';
+      const save = document.createElement('button'); save.className = 'btn-primary'; save.textContent = 'שמור הערה';
+      save.onclick = async () => { item.note = input.value.trim(); await wlStore.save(); this.renderItems(); close(); };
+      const foot = document.createElement('div'); foot.className = 'modal-foot'; foot.append(save); box.append(input, foot);
+    });
+  }
+
+  async addMany(symbols, listId = wlStore.activeListId) {
+    const l = wlStore.lists.find(x => x.id === listId); if (!l) { toast('בחר רשימה'); return; }
+    const have = new Set(l.items.map(x => x.symbol)); let added = 0, duplicate = 0, full = 0;
+    for (const symbol of symbols) {
+      if (have.has(symbol)) { duplicate++; continue; }
+      if (l.items.length >= 500) { full++; continue; }
+      have.add(symbol); l.items.push({symbol, color: null}); added++;
+    }
+    wlStore.activeListId = l.id; await wlStore.save(); this.render(); this.refreshQuotes();
+    toast(`נוספו ${added} ל-${l.name} · ${duplicate} כבר ברשימה${full ? ' · ' + full + ' לא נוספו (מגבלת 500)' : ''}`);
+    return { added, duplicate, full };
+  }
+
+  pasteImport() {
+    const l = this.active(); if (!l) { toast('צור רשימה תחילה'); return; }
+    dialog('הדבקת טיקרים ל-' + l.name, (box, close) => {
+      const input = document.createElement('textarea'); input.className = 'ux-text'; input.dir = 'ltr'; input.placeholder = 'NVDA, AAPL, NASDAQ:AMD'; input.setAttribute('aria-label', 'רשימת טיקרים');
+      const preview = document.createElement('p'); preview.className = 'ux-hint';
+      const save = document.createElement('button'); save.className = 'btn-primary'; save.textContent = 'הוסף לרשימה';
+      const update = () => { const p = parseTickers(input.value); preview.textContent = `${p.symbols.length} טיקרים ייחודיים · כפילויות לא יתווספו` + (p.invalid.length ? ` · לא תקינים: ${p.invalid.join(', ')}` : ''); save.disabled = !p.symbols.length || !!p.invalid.length; }; input.oninput = update; update();
+      save.onclick = async () => { const p = parseTickers(input.value); if(!p.symbols.length || p.invalid.length) return; save.disabled = true; await this.addMany(p.symbols, l.id); close(); };
+      const foot = document.createElement('div'); foot.className = 'modal-foot'; foot.append(save); box.append(input, preview, foot);
+    });
   }
 
   async add(symbol) {
@@ -139,6 +176,7 @@ export class WatchlistUI {
 }
 
 export function wireWatchlistButtons(ui) {
+  document.getElementById('wl-import').onclick = () => ui.pasteImport();
   document.getElementById('wl-add-list').onclick = () => ui.createList();
   document.getElementById('wl-rename').onclick = () => ui.renameList();
   document.getElementById('wl-del-list').onclick = () => ui.removeList();

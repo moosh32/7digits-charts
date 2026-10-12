@@ -176,7 +176,7 @@ function cleanWlItem(x) {
     const symbol = sanitizeSymbol(x?.symbol);
     if (!symbol) return null;
     const color = x?.color == null ? null : String(x.color).toLowerCase();
-    return { symbol, color: color && COLORS.has(color) ? color : null };
+    return { symbol, color: color && COLORS.has(color) ? color : null, note: String(x?.note || '').trim().slice(0, 500) };
 }
 
 export async function hWatchlistsGet(deps) {

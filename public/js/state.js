@@ -98,11 +98,13 @@ export const wlStore = {
   async save() {
     this.saveLocal();
     clearTimeout(this._saveT);
+    const active = this.active();
+    this._pendingLists ||= new Map();
+    if (active) this._pendingLists.set(active.id, JSON.parse(JSON.stringify(active.items)));
     this._saveT = setTimeout(async () => {
       if (!api.state.serverOk) return;
-      const l = this.active();
-      if (!l) return;
-      try { await api.wlUpdate(l.id, { items: l.items }); } catch { /* local only */ }
+      const pending = [...this._pendingLists]; this._pendingLists.clear();
+      for (const [id, items] of pending) { try { await api.wlUpdate(id, { items }); } catch { /* local only */ } }
     }, 600);
   },
   async create(name) {
