@@ -104,6 +104,9 @@ export default {
             if (method === 'GET' && pathname === '/api/quotes')
                 return json(...toTuple(await H.hQuotes({ symbols: qp('symbols') }, deps)));
 
+            if (method === 'GET' && pathname === '/api/wl-stats')
+                return json(...toTuple(H.hWatchlistStats({ symbols: qp('symbols') }, deps)));
+
             // ----- scans -----
             if (method === 'POST' && pathname === '/api/scan/run') {
                 const body = await readJson(request);

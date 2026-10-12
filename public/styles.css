@@ -303,3 +303,17 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .al-desc { flex: 1; } .al-desc small { color: var(--muted); }
 .al-st { font-size: 11px; color: var(--muted); text-align: end; }
 .al-st.st-active { color: var(--up); } .al-st.st-fired { color: var(--gold); }
+
+/* round 3: tab symbol-link, watchlist columns, 52wk badge */
+#tab-link {background:none;border:0;color:var(--muted);font-size:14px;padding:4px 8px;cursor:pointer;opacity:.55;filter:grayscale(1)}
+#tab-link.on {opacity:1;filter:none;color:var(--gold)}
+.tab.linked {box-shadow:inset 0 -2px 0 var(--gold-dim)}
+.wl-cols {display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:0 8px 6px}
+.wl-cols-lbl {color:var(--muted);font-size:11px;margin-inline-end:2px}
+.col-chip {background:none;border:1px solid var(--border);border-radius:10px;color:var(--muted);cursor:pointer;font-size:11px;padding:1px 7px}
+.col-chip.on {border-color:var(--gold-dim);color:var(--text);background:var(--panel2)}
+.wl-row .c {font-size:11px;min-width:44px;text-align:end;color:var(--muted);font-variant-numeric:tabular-nums}
+.wl-row .c.up {color:var(--up)} .wl-row .c.dn {color:var(--down)}
+.wl-row .c.nh {font-weight:700}
+.wl-row .sym {min-width:0}
+.nh-badge {font-size:9px;font-weight:700;color:var(--up);border:1px solid var(--up);border-radius:3px;padding:0 3px;margin-inline-start:3px}
