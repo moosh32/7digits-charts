@@ -5,7 +5,7 @@ import { resultsCsv } from './ux.js';
 import { toast } from './tabs.js';
 
 const FIELDS = [
-  ['price', 'מחיר ($)'], ['dollarVolume', 'דולר-ווליום'], ['avgDollarVolume20', 'דולר-ווליום ממוצע 20'],
+  ['price', 'מחיר ($)'], ['dollarVolume', 'דולר-ווליום'], ['avgDollarVolume20', 'דולר-ווליום ממוצע 20'], ['avgDollarVolume50', 'דולר-ווליום ממוצע 50'], ['rsPct21', 'RS 1M דירוג 0-100 (מול SPY)'], ['rsPct63', 'RS 3M דירוג 0-100 (מול SPY)'],
   ['atrPct', 'ATR %'], ['gapPct', 'גאפ %'], ['relVolume', 'ווליום יחסי'],
   ['priceVsSma20Pct', 'מרחק מ-SMA20 %'], ['priceVsSma50Pct', 'מרחק מ-SMA50 %'], ['priceVsSma200Pct', 'מרחק מ-SMA200 %'],
   ['perf5', 'ביצוע 5 ימים %'], ['perf21', 'ביצוע 21 ימים %'], ['perf63', 'ביצוע 63 ימים %'],
