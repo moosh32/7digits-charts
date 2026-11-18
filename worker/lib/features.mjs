@@ -169,7 +169,7 @@ export function computeFeatures(sym, name, bars, meta = {}) {
     const chg1d = prev.close ? ((last.close / prev.close) - 1) * 100 : 0;
     const splitSuspect = chg1d > 40;
     // RS vs SPY: date-aligned closes, need 252 shared days
-    let rsShared = 0, rsNewHigh252 = null;
+    let rsShared = 0, rsNewHigh252 = null, rsScore21 = null, rsScore63 = null;
     const spy = meta.spy;
     if (spy) {
         const rsv = [];
@@ -179,6 +179,9 @@ export function computeFeatures(sym, name, bars, meta = {}) {
             if (sp && C[i] > 0) rsv.push(C[i] / sp);
         }
         rsShared = rsv.length;
+        // RS score vs SPY (0-100): PERCENTRANK of today's close/SPY ratio within the last k ratios (Jeff Sun method, k=21 ~1M, k=63 ~3M).
+        const prk = (k) => { if (rsv.length < k) return null; const w = rsv.slice(-k), x = w[k - 1]; let lt = 0; for (const y of w) if (y < x) lt++; return (lt / (k - 1)) * 100; };
+        rsScore21 = prk(21); rsScore63 = prk(63);
         if (rsShared >= 252) {
             const w = rsv.slice(-252);
             const mx = Math.max(...w);
@@ -199,7 +202,7 @@ export function computeFeatures(sym, name, bars, meta = {}) {
         dayHigh: last.high, dayLow: last.low, dayOpen: last.open,
         hi1, lo1, hi2, lo2,
         volMax252, volMaxAll, liqFlag, splitSuspect,
-        rsShared, rsNewHigh252, rsGap, maxClose252,
+        rsShared, rsNewHigh252, rsScore21, rsScore63, rsGap, maxClose252,
         ema10, ema10Lag3, ema20Lag3, flag40, flagHtf, djy, vcp: vcp(C, H, L, V, n),
         hiAll: Math.max(...H),
         chg: prev.close ? (last.close / prev.close - 1) * 100 : 0,
