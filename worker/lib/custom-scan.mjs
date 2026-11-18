@@ -5,11 +5,35 @@
 const pctAbove = (price, base) =>
     (price != null && base != null && base !== 0) ? (price / base - 1) * 100 : null;
 
+// Universe percentile rank (0-100) of a perf feature across all stocks in the snapshot.
+// Method: 100 * (count of stocks with a strictly lower value) / (N - 1). Cached per snapshot.
+const _pctCache = new WeakMap();
+function universePct(snap, key, f) {
+    const v = f[key];
+    if (v == null || !snap?.feats) return null;
+    let c = _pctCache.get(snap.feats);
+    if (!c) { c = {}; _pctCache.set(snap.feats, c); }
+    let arr = c[key];
+    if (!arr) {
+        arr = Object.values(snap.feats).map((x) => x[key]).filter((x) => x != null && Number.isFinite(x)).sort((p, q) => p - q);
+        c[key] = arr;
+    }
+    if (arr.length < 2) return null;
+    let lo = 0, hi = arr.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m] < v) lo = m + 1; else hi = m; }
+    return (lo / (arr.length - 1)) * 100;
+}
+
 // field -> (feature, snapshot) => number|null
 const FIELDS = {
     price: (f) => f.price,
     dollarVolume: (f) => (f.vol != null && f.price != null) ? f.vol * f.price : null,
     avgDollarVolume20: (f) => f.dvol20,
+    // 50-session average dollar volume (close*volume); needs dvol50 from the snapshot build.
+    avgDollarVolume50: (f) => f.dvol50 ?? null,
+    // RS score 1M / 3M: universe percentile (0-100) of 21d / 63d performance.
+    rsPct21: (f, snap) => universePct(snap, 'perf21', f),
+    rsPct63: (f, snap) => universePct(snap, 'perf63', f),
     atrPct: (f) => f.atrPct,
     gapPct: (f) => f.gap,
     relVolume: (f) => f.relVol,
