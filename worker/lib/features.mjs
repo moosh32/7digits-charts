@@ -209,6 +209,7 @@ export function computeFeatures(sym, name, bars, meta = {}) {
         relVol: avgV(20) ? last.volume / avgV(20) : 0,
         rvol50: avgV(50) ? last.volume / avgV(50) : 0, // Jeff Sun RVOL: vs 50-day avg volume
         dvol20: dvol(20),
+        dvol50: dvol(50), // avg dollar volume, 50 sessions (close*volume)
         perf5: perf(5), perf21: perf(21), perf63: perf(63), perf126: perf(126), perf252: perf(252), perf1260: perf(1260),
         atrPct: atr14 && last.close ? (atr14 / last.close) * 100 : null,
         adr20: adrn ? (adr / adrn) * 100 : null,
