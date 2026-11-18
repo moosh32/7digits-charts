@@ -34,6 +34,9 @@ const FIELDS = {
     // RS score 1M / 3M: universe percentile (0-100) of 21d / 63d performance.
     rsPct21: (f, snap) => universePct(snap, 'perf21', f),
     rsPct63: (f, snap) => universePct(snap, 'perf63', f),
+    // RS score vs SPY (0-100): PERCENTRANK of close/SPY ratio within last 21 / 63 sessions (Jeff Sun method).
+    rsScoreSpy21: (f) => f.rsScore21 ?? null,
+    rsScoreSpy63: (f) => f.rsScore63 ?? null,
     atrPct: (f) => f.atrPct,
     gapPct: (f) => f.gap,
     relVolume: (f) => f.relVol,
