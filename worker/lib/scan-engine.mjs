@@ -9,7 +9,7 @@ export { computeFeatures };
 
 // Bump when computeFeatures gains/loses fields or the snapshot gains top-level
 // fields — forces a rebuild on next start (express) / next asset publish (worker).
-export const SNAP_VERSION = 4; // v4 adds top-level spyPerf63 (for rs63vsSpy)
+export const SNAP_VERSION = 5; // v5 adds dvol50 feature; v4 adds top-level spyPerf63 (for rs63vsSpy)
 
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 
